@@ -1,0 +1,41 @@
+// https://www.shadertoy.com/view/tcyfz3
+
+#define P(z) vec3(cos((z)*.06)*64., cos((z)*.09)*12., z)
+
+// MENGERLAYER
+#define m(f, h)\
+    s /= (f), \
+    p = abs(fract(q/s)*s - s*.5), \
+ 	d = min(d, min(max(p.x, p.y), \
+               min(max(p.y, p.z), \
+               max(p.x, p.z))) - s/(h))
+
+void mainImage(out vec4 o, vec2 u) {
+
+    float i, T = iTime,d,s,l,
+          j = .003*dot(fract(sin(.07*T+u)), sin(u));
+    vec3  c,r = iResolution;
+    mat2 rot = mat2(cos(cos(T*.2)*.6+vec4(0,33,11,0)));
+
+    u = (u+u - r.xy) / r.y;
+
+    vec3  q,p = P(T),
+          Z = normalize( P(T+2.) - p),
+          X = normalize(vec3(Z.z,0,-Z)),
+          D = vec3(rot*u, 1) * mat3(-X, cross(X, Z), Z);
+
+    for(;i++ < 1e2 && d < 1e1;
+        c += s*vec3(5,2,1)+.04*vec3(1,2,5)
+    )
+        q = p += j + D * s,
+        d=s=24.,
+        m(2., 6.),
+        m(2., 4.),
+        m(9., 4.),
+        p = abs(q-P(q.z)),
+        s = min(4. - p.x, 2. - p.y),
+        s = max(s, .001+.5*abs(min(d, cos(p.z)))),
+        p = q;
+    o.rgb = tanh(c*c/2e3);
+
+}

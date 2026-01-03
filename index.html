@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>Shader Testing Environment</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+	<link rel="stylesheet" href="styles.css">
+
+	<!-- shader-web-background library -->
+	<script src="shader-web-background-main/dist/shader-web-background.min.js"></script>
+
+	<!--
+    SHADER 1: Simple Gradient
+    Single-pass animated gradient effect
+  -->
+	<script type="x-shader/x-fragment" id="gradient-image">
+    precision highp float;
+
+    uniform float iTime;
+    uniform vec2 iResolution;
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / iResolution;
+
+      float r = 0.5 + 0.5 * sin(iTime + uv.x * 3.0);
+      float g = 0.5 + 0.5 * sin(iTime * 1.3 + uv.y * 3.0);
+      float b = 0.5 + 0.5 * sin(iTime * 0.7 + (uv.x + uv.y) * 2.0);
+
+      gl_FragColor = vec4(r, g, b, 1.0);
+    }
+  </script>
+
+	<!--
+    SHADER 2: Feedback Circle
+    Two-pass shader with moving circle and fading trail
+  -->
+	<script type="x-shader/x-fragment" id="feedback-circle-buffer">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform float iMinDimension;
+    uniform sampler2D iChannel0;
+    uniform float iFeedbackFadeRate;
+    uniform vec2 iCircleCenter;
+    uniform float iCircleRadius;
+    uniform float iCircleEdgeSmoothing;
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / iResolution;
+      vec2 st = (gl_FragCoord.xy * 2.0 - iResolution) / iMinDimension;
+
+      vec3 previousColor = texture2D(iChannel0, uv).rgb;
+      previousColor *= iFeedbackFadeRate;
+
+      float dist = distance(iCircleCenter, st);
+      float shape = smoothstep(
+        iCircleRadius,
+        iCircleRadius - iCircleEdgeSmoothing,
+        dist
+      );
+
+      vec3 circleColor = vec3(
+        0.5 + 0.5 * sin(dist * 5.0),
+        0.5 + 0.5 * cos(dist * 3.0),
+        0.7
+      );
+
+      vec3 newColor = circleColor * shape;
+      vec3 color = previousColor + newColor;
+      color = clamp(color, 0.0, 1.0);
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+	<script type="x-shader/x-fragment" id="feedback-circle-image">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform sampler2D iChannel0;
+
+    void main() {
+      gl_FragColor = texture2D(iChannel0, gl_FragCoord.xy / iResolution);
+    }
+  </script>
+
+	<!--
+    SHADER 3: Spectral Feedback
+    Two-pass shader with spectral color mapping and feedback effects
+    Adapted from demo.html - uses Zucconi spectral algorithm
+  -->
+	<script type="x-shader/x-fragment" id="spectral-feedback-buffer">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform float iMinDimension;
+    uniform sampler2D iChannel0;
+    uniform vec2 iScreenRatioHalf;
+    uniform float iFeedbackZoomRate;
+    uniform float iFeedbackFadeRate;
+    uniform float iFeedbackColorShiftZoom;
+    uniform float iFeedbackColorShiftImpact;
+    uniform float iDrawIntensity;
+    uniform vec3 iBlobColor;
+    uniform float iBlobRadius;
+
+    vec4 repeatedTexture(in sampler2D channel, in vec2 uv) {
+      return texture2D(channel, mod(uv, 1.0));
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / iResolution;
+      vec2 st = (gl_FragCoord.xy * 2.0 - iResolution) / iMinDimension;
+
+      vec3 colorShift = repeatedTexture(
+        iChannel0,
+        uv - st * iFeedbackColorShiftZoom * iScreenRatioHalf
+      ).rgb;
+
+      vec2 stShift = vec2(0.0);
+      stShift += iFeedbackZoomRate * st;
+      stShift += (colorShift.rg - 0.5) * iFeedbackColorShiftImpact;
+      stShift *= iScreenRatioHalf;
+
+      vec3 prevColor = repeatedTexture(iChannel0, uv - stShift).rgb;
+      prevColor *= iFeedbackFadeRate;
+
+      float dist = length(st);
+      float blob = smoothstep(iBlobRadius, iBlobRadius * 0.8, dist);
+      blob = pow(blob, 20.0);
+
+      vec3 drawColor = iBlobColor * blob * iDrawIntensity;
+
+      vec3 color = prevColor + drawColor;
+      color = clamp(color, 0.0, 1.0);
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+	<script type="x-shader/x-fragment" id="spectral-feedback-image">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform sampler2D iChannel0;
+
+    void main() {
+      gl_FragColor = texture2D(iChannel0, gl_FragCoord.xy / iResolution);
+    }
+  </script>
+
+</head>
+
+<body>
+	<!-- Shader Selector UI -->
+	<div id="shader-selector">
+		<label for="shader-select">Select Shader:</label>
+		<select id="shader-select">
+			<option value="gradient">1. Simple Gradient</option>
+			<option value="feedback-circle">2. Feedback Circle</option>
+			<option value="spectral-feedback">3. Spectral Feedback</option>
+		</select>
+		<div id="shader-info"></div>
+	</div>
+
+	<!-- Main controller (defines ShaderRegistry) -->
+	<script src="main.js"></script>
+
+	<!-- Shader configuration scripts (must load after main.js) -->
+	<script src="shaders/gradient.js"></script>
+	<script src="shaders/feedback-circle.js"></script>
+	<script src="shaders/spectral-feedback.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,55 @@
+---
+alwaysApply: true
+---
+## Shader Testing Environment
+
+### Files Created
+
+1. **`index.html`** - Main HTML with:
+   - All shader source code in `<script type="x-shader/x-fragment">` tags
+   - Dropdown selector UI for switching between shaders
+   - Import of shader-web-background library
+
+2. **`styles.css`** - UI styling with:
+   - Semi-transparent overlay for the shader selector
+   - Backdrop blur effect
+   - Proper z-indexing to float above the shader canvas
+
+3. **`main.js`** - Shader registry with:
+   - `ShaderRegistry.register()` for adding new shaders
+   - `ShaderRegistry.start()` for switching shaders
+   - Automatic cleanup when switching between shaders
+
+4. **`shaders/gradient.js`** - Simple animated gradient:
+   - Single-pass shader
+   - Time-based color animation using sin waves
+   - Demonstrates basic `iTime` and `iResolution` uniforms
+
+5. **`shaders/feedback-circle.js`** - Feedback loop with trail:
+   - Two-pass shader (buffer + image)
+   - Orbiting circle with fading trail effect
+   - Demonstrates `iChannel0` buffer sampling
+
+6. **`shaders/spectral-feedback.js`** - Spectral color feedback:
+   - Two-pass shader with the Zucconi spectral algorithm
+   - Creates natural rainbow colors that cycle over time
+   - Flowing feedback patterns adapted from xemantic.com
+
+### How to Add New Shaders
+
+To add a new shader, create a file in `shaders/` and register it:
+
+```javascript
+ShaderRegistry.register('my-shader', {
+  shaders: {
+    'my-shader-image': {
+      uniforms: {
+        iTime: (gl, loc) => gl.uniform1f(loc, performance.now() / 1000),
+        iResolution: (gl, loc, ctx) => gl.uniform2f(loc, ctx.width, ctx.height)
+      }
+    }
+  }
+}, '<strong>My Shader</strong>Description here.');
+```
+
+Then add the corresponding `<script id="my-shader-image">` in `index.html` and an `<option>` in the dropdown.
