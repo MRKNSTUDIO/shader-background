@@ -1,7 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/WebGL-1.0-orange?style=flat-square" alt="WebGL 1.0">
   <img src="https://img.shields.io/badge/GLSL-ES%201.0-blue?style=flat-square" alt="GLSL ES 1.0">
-  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License">
   <img src="https://img.shields.io/badge/AI-Cursor%20Rules-purple?style=flat-square" alt="Cursor Rules">
 </p>
 
