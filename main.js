@@ -146,9 +146,35 @@ const ShaderRegistry = {
 		this.currentShader = id;
 
 		const shaderDef = this.shaders[id];
+		const originalConfig = shaderDef.config;
+
+		// Wrap callbacks to check if context is still active
+		const wrappedConfig = Object.assign({}, originalConfig);
+		const registry = this;
+
+		if (originalConfig.onBeforeFrame) {
+			wrappedConfig.onBeforeFrame = function (ctx) {
+				if (ctx._stopped) return;
+				originalConfig.onBeforeFrame(ctx);
+			};
+		}
+
+		if (originalConfig.onAfterFrame) {
+			wrappedConfig.onAfterFrame = function (ctx) {
+				if (ctx._stopped) return;
+				originalConfig.onAfterFrame(ctx);
+			};
+		}
+
+		if (originalConfig.onResize) {
+			wrappedConfig.onResize = function (width, height, ctx) {
+				if (ctx && ctx._stopped) return;
+				originalConfig.onResize(width, height, ctx);
+			};
+		}
 
 		try {
-			this.currentContext = shaderWebBackground.shade(shaderDef.config);
+			this.currentContext = shaderWebBackground.shade(wrappedConfig);
 			this.updateInfo(shaderDef.description);
 		} catch (error) {
 			console.error('Failed to start shader:', error);
@@ -160,6 +186,17 @@ const ShaderRegistry = {
 	 * Stop the current shader and remove its canvas
 	 */
 	stop: function () {
+		if (this.currentContext) {
+			// Mark context as stopped so callbacks can detect it
+			this.currentContext._stopped = true;
+
+			// Force lose the WebGL context to stop rendering
+			const gl = this.currentContext.gl;
+			const loseContext = gl.getExtension('WEBGL_lose_context');
+			if (loseContext) {
+				loseContext.loseContext();
+			}
+		}
 		const existingCanvas = document.getElementById('shader-web-background');
 		if (existingCanvas) {
 			existingCanvas.remove();

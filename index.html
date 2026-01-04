@@ -300,6 +300,181 @@
   </script>
 
 	<!--
+    SHADER: Voronoi Dreams
+    Ethereal flowing silk ribbons with hypnotic mouse interaction
+  -->
+	<script type="x-shader/x-fragment" id="voronoi-dreams-buffer">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform float iMinDimension;
+    uniform float iTime;
+    uniform sampler2D iChannel0;
+    uniform vec2 iMouse;
+    uniform float iTiltX;
+    uniform float iTiltY;
+    uniform float iVelocity;
+
+    // Smooth noise function
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+
+      return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    }
+
+    float fbm(vec2 p) {
+      float value = 0.0;
+      float amplitude = 0.5;
+      for (int i = 0; i < 5; i++) {
+        value += amplitude * noise(p);
+        p *= 2.0;
+        amplitude *= 0.5;
+      }
+      return value;
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / iResolution;
+      vec2 st = (gl_FragCoord.xy * 2.0 - iResolution) / iMinDimension;
+
+      // Mouse in normalized space
+      vec2 mouse = (iMouse * 2.0 - iResolution) / iMinDimension;
+      float mouseInfluence = 1.0 - smoothstep(0.0, 2.5, length(st - mouse));
+
+      // Tilt creates drift direction
+      vec2 drift = vec2(iTiltX, iTiltY) * 0.003;
+
+      // Time with gentle variation
+      float t = iTime * 0.15;
+
+      // Create flowing displacement field
+      vec2 displacement = vec2(0.0);
+
+      // Layer 1: Large slow waves
+      displacement.x += sin(st.y * 1.5 + t * 0.7) * 0.3;
+      displacement.y += cos(st.x * 1.2 + t * 0.5) * 0.3;
+
+      // Layer 2: Medium organic flow
+      float n1 = fbm(st * 1.5 + t * 0.3);
+      float n2 = fbm(st * 1.5 + vec2(5.2, 1.3) + t * 0.25);
+      displacement += vec2(n1 - 0.5, n2 - 0.5) * 0.6;
+
+      // Mouse creates wobbly ripple disturbance
+      vec2 toMouse = st - mouse;
+      float mouseDist = length(toMouse);
+
+      // Velocity increases ripple density (more rings when moving)
+      float freqBoost = 1.0 + iVelocity * 3.0;
+      float ampBoost = 1.0 + iVelocity * 0.5;
+
+      // Multiple wobble frequencies for organic feel
+      float ripple1 = sin(mouseDist * 12.0 * freqBoost - iTime * 3.5) * exp(-mouseDist * 0.8);
+      float ripple2 = sin(mouseDist * 7.0 * freqBoost - iTime * 2.2 + 1.0) * exp(-mouseDist * 1.0) * 0.6;
+      float ripple3 = cos(mouseDist * 18.0 * freqBoost - iTime * 4.5) * exp(-mouseDist * 1.2) * 0.3;
+      float ripple = (ripple1 + ripple2 + ripple3) * ampBoost;
+
+      // Perpendicular wobble for swirling effect
+      vec2 perpendicular = vec2(-toMouse.y, toMouse.x);
+      float swirl = sin(mouseDist * 5.0 * freqBoost - iTime * 1.8) * exp(-mouseDist * 0.9) * 0.4 * ampBoost;
+
+      displacement += normalize(toMouse + 0.001) * ripple * 0.4;
+      displacement += normalize(perpendicular + 0.001) * swirl * mouseInfluence;
+
+      // Apply displacement to sample position
+      vec2 flowUV = st + displacement * 0.15;
+
+      // Create silk ribbon layers with displaced coordinates
+      float silk = 0.0;
+
+      // Multiple ribbon layers at different frequencies
+      for (int i = 0; i < 4; i++) {
+        float fi = float(i);
+        float phase = fi * 1.57;
+        float freq = 2.0 + fi * 0.7;
+        float speed = 0.3 + fi * 0.1;
+
+        vec2 ribbonPos = flowUV * freq;
+        ribbonPos += vec2(sin(t * speed + phase), cos(t * speed * 0.7 + phase)) * 0.5;
+
+        float ribbon = sin(ribbonPos.x + sin(ribbonPos.y * 0.5 + t * 0.4) * 2.0);
+        ribbon = smoothstep(0.0, 0.7, abs(ribbon));
+        ribbon = 1.0 - ribbon;
+        ribbon *= 0.25;
+
+        silk += ribbon;
+      }
+
+      // Soft color palette: deep ocean blues to soft rose
+      vec3 deepBlue = vec3(0.05, 0.08, 0.18);
+      vec3 teal = vec3(0.12, 0.28, 0.35);
+      vec3 softRose = vec3(0.35, 0.18, 0.25);
+      vec3 cream = vec3(0.85, 0.80, 0.75);
+
+      // Color based on position and flow
+      float colorMix = fbm(flowUV * 0.8 + t * 0.1);
+      colorMix = smoothstep(0.3, 0.7, colorMix);
+
+      vec3 baseColor = mix(deepBlue, teal, colorMix);
+      baseColor = mix(baseColor, softRose, smoothstep(0.5, 0.8, colorMix) * 0.5);
+
+      // Silk highlights
+      vec3 silkColor = mix(baseColor, cream, silk * 0.7);
+
+      // Add glow where mouse influences
+      vec3 mouseGlow = vec3(0.5, 0.4, 0.55) * mouseInfluence * 0.25;
+      silkColor += mouseGlow;
+
+      // Feedback for trailing glow
+      vec2 feedbackUV = uv + drift - displacement * 0.003;
+      feedbackUV = clamp(feedbackUV, 0.001, 0.999);
+      vec3 prevColor = texture2D(iChannel0, feedbackUV).rgb;
+
+      // Blend with previous frame for smooth trails
+      vec3 color = mix(silkColor, prevColor, 0.75);
+
+      // Subtle brightening in silk areas
+      color += silk * cream * 0.08;
+
+      color = clamp(color, 0.0, 1.0);
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+	<script type="x-shader/x-fragment" id="voronoi-dreams-image">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform sampler2D iChannel0;
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / iResolution;
+
+      vec3 color = texture2D(iChannel0, uv).rgb;
+
+      // Gentle contrast enhancement
+      color = smoothstep(0.0, 1.0, color);
+
+      // Very subtle vignette
+      vec2 center = uv - 0.5;
+      float vignette = 1.0 - dot(center, center) * 0.3;
+      color *= vignette;
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+	<!--
     SHADER: Shadertoy Example 1
     Single-pass 3D fractal raymarching shader
     Source: https://www.shadertoy.com/view/tcyfz3
@@ -662,14 +837,15 @@
 	<div id="shader-selector">
 		<label for="shader-select">Select Shader:</label>
 		<select id="shader-select">
-			<option value="gradient">1. Simple Gradient</option>
-			<option value="feedback-circle">2. Feedback Circle</option>
-			<option value="spectral-feedback">3. Spectral Feedback</option>
-			<option value="interactive-blob">4. Interactive Blob</option>
-			<option value="demo-shader">5. Demo Shader</option>
-			<option value="shadertoy-example-1">6. Shadertoy Example 1</option>
-			<option value="shadertoy-example-2">7. Shadertoy Example 2</option>
-			<option value="shadertoy-example-3">8. Shadertoy Example 3</option>
+			<option value="gradient">Simple Gradient</option>
+			<option value="feedback-circle">Feedback Circle</option>
+			<option value="spectral-feedback">Spectral Feedback</option>
+			<option value="interactive-blob">Interactive Blob</option>
+			<option value="demo-shader">Demo Shader</option>
+			<option value="voronoi-dreams">Voronoi Dreams</option>
+			<option value="shadertoy-example-1">Shadertoy Example 1</option>
+			<option value="shadertoy-example-2">Shadertoy Example 2</option>
+			<option value="shadertoy-example-3">Shadertoy Example 3</option>
 		</select>
 		<div id="shader-info"></div>
 	</div>
@@ -911,6 +1087,7 @@ uniforms: {
 	<script src="shaders/spectral-feedback.js"></script>
 	<script src="shaders/interactive-blob.js"></script>
 	<script src="shaders/demo-shader.js"></script>
+	<script src="shaders/voronoi-dreams.js"></script>
 	<script src="shaders/shadertoy-example-1.js"></script>
 	<script src="shaders/shadertoy-example-2.js"></script>
 	<script src="shaders/shadertoy-example-3.js"></script>
