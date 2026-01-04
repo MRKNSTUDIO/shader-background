@@ -9,8 +9,9 @@
 A complete development environment for creating stunning WebGL shader backgrounds. This toolkit includes **AI-assisted Shadertoy conversion rules**, a shader registry system, and example implementations—from simple gradients to complex raymarched fractals.
 
 <p align="center">
-  <a href="https://mrknstudio.github.io/shader-background/">🎮 Live Demo</a> •
-  <a href="https://mrknstudio.github.io/shader-background/minimal-example.html">🚀 Minimal Example</a>
+  <a href="https://mrknstudio.github.io/shader-background/">Live Demo</a> •
+  <a href="https://mrknstudio.github.io/shader-background/minimal-example.html">Minimal Example</a> •
+  <a href="https://mrknstudio.github.io/shader-background/viewport-aware-example.html">Viewport-Aware Example</a>
 </p>
 
 ---
@@ -37,6 +38,10 @@ Explore all shader examples with a dropdown selector:
 ### Minimal Integration Example
 Clean, self-contained example with the Interactive Blob effect:
 **[https://mrknstudio.github.io/shader-background/minimal-example.html](https://mrknstudio.github.io/shader-background/minimal-example.html)**
+
+### Viewport-Aware Multi-Canvas Example
+Performance-optimized example with multiple canvases that pause rendering when not visible:
+**[https://mrknstudio.github.io/shader-background/viewport-aware-example.html](https://mrknstudio.github.io/shader-background/viewport-aware-example.html)**
 
 ---
 
@@ -82,6 +87,7 @@ npx serve .
 │   └── shadertoy-example-*.js             ← Converted Shadertoy shaders
 ├── index.html                             ← Main demo with UI
 ├── minimal-example.html                   ← Clean integration example
+├── viewport-aware-example.html            ← Multi-canvas with viewport detection
 ├── main.js                                ← ShaderRegistry controller
 └── styles.css                             ← UI styling
 ```
@@ -189,6 +195,64 @@ The library handles double-buffering automatically—you read from the previous 
 
 ---
 
+## 🎯 Viewport-Aware Rendering (Multiple Canvases)
+
+For pages with multiple shader canvases, you can optimize performance by pausing rendering when canvases are not visible. The `viewport-aware-example.html` demonstrates this pattern.
+
+### Key Features
+
+- **IntersectionObserver API**: Automatically detects when canvases enter/leave viewport
+- **Tab Visibility**: Pauses rendering when browser tab is hidden
+- **Shared Shader Source**: Multiple canvases can share the same shader code
+- **Phase Offsets**: Each canvas can have unique phase offsets for visual variety
+
+### Phase Offsets Pattern
+
+When using the same shader on multiple canvases, you can create visual variety by adding phase offsets:
+
+```javascript
+// Define phase offsets (in radians)
+const phaseOffsets = {
+  1: 0,                    // 0°
+  2: Math.PI * 2 / 3,      // 120°
+  3: Math.PI * 4 / 3       // 240°
+};
+
+// In shader source, add iPhase uniform
+uniform float iPhase;
+
+// Use in shader calculation
+float t = iTime * 0.5 + iPhase;
+
+// Pass phase offset as uniform
+iPhase: function (gl, loc) {
+  gl.uniform1f(loc, phaseOffsets[canvasId]);
+}
+```
+
+This creates the same animation pattern but offset in time, giving each canvas a unique look while sharing the same shader code.
+
+### Implementation Pattern
+
+```javascript
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    isVisible = entry.isIntersecting && entry.intersectionRatio > 0;
+  });
+}, { threshold: 0.01, rootMargin: '50px' });
+
+const ctx = shaderWebBackground.shade({
+  canvas: canvas,
+  onBeforeFrame: function(ctx) {
+    if (!isVisible) return; // Skip rendering when not visible
+    // ... rest of your code
+  },
+  shaders: { /* ... */ }
+});
+```
+
+---
+
 ## ⚡ Quick Shadertoy Conversion Checklist
 
 - [ ] Add `precision highp float;` at top
@@ -215,6 +279,7 @@ The library handles double-buffering automatically—you read from the previous 
 | **Voronoi Dreams** | Ethereal flowing silk ribbons with hypnotic mouse interaction |
 | **Demo Shader** | Advanced multi-input: mouse, scroll parallax, device orientation |
 | **Shadertoy Examples 1-3** | Real-world Shadertoy ports demonstrating conversion techniques |
+| **Viewport-Aware Example** | Multiple canvases with IntersectionObserver-based pause/resume |
 
 ---
 
