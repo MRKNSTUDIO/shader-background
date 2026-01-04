@@ -6,8 +6,9 @@
 
 html,
 body {
-	width: 100%;
-	min-height: 100%;
+	width: 100vw;
+	min-height: 100vh;
+	min-height: 100dvh;
 	overflow-x: hidden;
 	overflow-y: auto;
 	background: transparent;
@@ -311,4 +312,28 @@ a:hover {
 	cursor: pointer;
 	width: 16px;
 	height: 16px;
+}
+
+/* WebGL unsupported notification */
+.webgl-notification {
+	position: fixed;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(220, 53, 69, 0.95);
+	color: #fff;
+	padding: 12px 20px;
+	border-radius: 6px;
+	font-size: 13px;
+	z-index: 10001;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	backdrop-filter: blur(10px);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	animation: slideUp 0.3s ease-out;
+	max-width: 90%;
+	text-align: center;
+}
+
+.webgl-notification.hidden {
+	display: none;
 }

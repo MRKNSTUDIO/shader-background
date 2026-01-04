@@ -176,9 +176,12 @@ const ShaderRegistry = {
 		try {
 			this.currentContext = shaderWebBackground.shade(wrappedConfig);
 			this.updateInfo(shaderDef.description);
+			// Hide notification if shader started successfully
+			hideWebGLNotification();
 		} catch (error) {
 			console.error('Failed to start shader:', error);
 			this.updateInfo('Error: ' + error.message);
+			showWebGLNotification();
 		}
 	},
 
@@ -216,18 +219,64 @@ const ShaderRegistry = {
 	}
 };
 
+// WebGL support check (cached)
+let webglSupported = null;
+
+// Show WebGL unsupported notification
+function showWebGLNotification() {
+	const notification = document.getElementById('webgl-notification');
+	if (notification) {
+		notification.classList.remove('hidden');
+	}
+}
+
+// Hide WebGL unsupported notification
+function hideWebGLNotification() {
+	const notification = document.getElementById('webgl-notification');
+	if (notification) {
+		notification.classList.add('hidden');
+	}
+}
+
+// Check WebGL support (cached)
+function checkWebGLSupport() {
+	if (webglSupported !== null) {
+		return webglSupported;
+	}
+	try {
+		const canvas = document.createElement('canvas');
+		const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+		webglSupported = !!gl;
+		if (!webglSupported) {
+			showWebGLNotification();
+		}
+		return webglSupported;
+	} catch (e) {
+		webglSupported = false;
+		showWebGLNotification();
+		return false;
+	}
+}
+
 /**
  * Initialize the shader selector and start the default shader
  */
 function initShaderEnvironment() {
 	const selector = document.getElementById('shader-select');
+	const isSupported = checkWebGLSupport();
 
 	selector.addEventListener('change', function () {
-		ShaderRegistry.start(this.value);
+		if (isSupported) {
+			ShaderRegistry.start(this.value);
+		} else {
+			showWebGLNotification();
+		}
 	});
 
-	// Start with the first shader
-	ShaderRegistry.start(selector.value);
+	// Start with the first shader if WebGL is supported
+	if (isSupported) {
+		ShaderRegistry.start(selector.value);
+	}
 }
 
 // Initialize after all scripts are loaded (window.load waits for all resources)

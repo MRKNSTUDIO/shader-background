@@ -11,7 +11,8 @@
 			margin: 0;
 			padding: 0;
 			width: 100%;
-			height: 100%;
+			min-height: 100vh;
+			min-height: 100dvh;
 			display: grid;
 			place-items: center;
 		}
@@ -35,6 +36,42 @@
 			max-width: 600px;
 			margin: 0 auto;
 			mix-blend-mode: difference;
+		}
+
+		/* WebGL unsupported notification */
+		.webgl-notification {
+			position: fixed;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			background: rgba(220, 53, 69, 0.95);
+			color: #fff;
+			padding: 12px 20px;
+			border-radius: 6px;
+			font-size: 13px;
+			z-index: 10001;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			animation: slideUp 0.3s ease-out;
+			max-width: 90%;
+			text-align: center;
+		}
+
+		@keyframes slideUp {
+			from {
+				transform: translateX(-50%) translateY(20px);
+				opacity: 0;
+			}
+
+			to {
+				transform: translateX(-50%) translateY(0);
+				opacity: 1;
+			}
+		}
+
+		.webgl-notification.hidden {
+			display: none;
 		}
 	</style>
 
@@ -90,6 +127,11 @@
 		<p>This is a minimal example showing only what's needed for shader integration.</p>
 	</main>
 
+	<!-- WebGL unsupported notification -->
+	<div id="webgl-notification" class="webgl-notification hidden">
+		⚠️ Shader cannot be played on this device
+	</div>
+
 	<!-- Shader library by xemantic -->
 	<script src="dist/shader-web-background.min.js"></script>
 
@@ -125,61 +167,98 @@
 				}
 			}, { passive: true });
 
-			// Initialize shader
-			shaderWebBackground.shade({
-				onInit: function (ctx) {
-					mouseX = ctx.cssWidth / 2;
-					mouseY = ctx.cssHeight / 2;
-				},
-				onResize: function (width, height) {
-					minDimension = Math.min(width, height);
-				},
-				onBeforeFrame: function (ctx) {
-					var time = performance.now() / 1000;
-
-					// Convert mouse to shader coordinates
-					shaderMouseX = ctx.toShaderX(mouseX);
-					shaderMouseY = ctx.toShaderY(mouseY);
-
-					// Normalized coordinates
-					var stMouseX = (2 * shaderMouseX - ctx.width) / minDimension;
-					var stMouseY = (2 * shaderMouseY - ctx.height) / minDimension;
-
-					var targetX = stMouseX;
-					var targetY = stMouseY;
-
-					// Smooth blob movement
-					blobCenterX += (targetX - blobCenterX) * 0.15;
-					blobCenterY += (targetY - blobCenterY) * 0.15;
-
-					// Color shifts based on position and time
-					var distance = Math.sqrt(blobCenterX * blobCenterX + blobCenterY * blobCenterY);
-					var hue = (time * colorShiftSpeed + distance * 0.5) % 1.0;
-					blobColor[0] = 0.5 + 0.5 * Math.sin(hue * Math.PI * 2);
-					blobColor[1] = 0.5 + 0.5 * Math.sin((hue + 0.33) * Math.PI * 2);
-					blobColor[2] = 0.5 + 0.5 * Math.sin((hue + 0.66) * Math.PI * 2);
-				},
-				shaders: {
-					'blob-buffer': {
-						uniforms: {
-							iResolution: function (gl, loc, ctx) { gl.uniform2f(loc, ctx.width, ctx.height); },
-							iMinDimension: function (gl, loc) { gl.uniform1f(loc, minDimension); },
-							iFeedbackFadeRate: function (gl, loc) { gl.uniform1f(loc, feedbackFadeRate); },
-							iBlobCenter: function (gl, loc) { gl.uniform2f(loc, blobCenterX, blobCenterY); },
-							iBlobRadius: function (gl, loc) { gl.uniform1f(loc, blobRadius); },
-							iBlobColor: function (gl, loc) { gl.uniform3f(loc, blobColor[0], blobColor[1], blobColor[2]); },
-							iBlobIntensity: function (gl, loc) { gl.uniform1f(loc, blobIntensity); },
-							iChannel0: function (gl, loc, ctx) { ctx.texture(loc, ctx.buffers['blob-buffer']); }
-						}
-					},
-					'blob-image': {
-						uniforms: {
-							iResolution: function (gl, loc, ctx) { gl.uniform2f(loc, ctx.width, ctx.height); },
-							iChannel0: function (gl, loc, ctx) { ctx.texture(loc, ctx.buffers['blob-buffer']); }
-						}
-					}
+			// Check WebGL support
+			function checkWebGLSupport() {
+				try {
+					const canvas = document.createElement('canvas');
+					const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+					return !!gl;
+				} catch (e) {
+					return false;
 				}
-			});
+			}
+
+			// Show WebGL unsupported notification
+			function showWebGLNotification() {
+				const notification = document.getElementById('webgl-notification');
+				if (notification) {
+					notification.classList.remove('hidden');
+				}
+			}
+
+			// Hide WebGL unsupported notification
+			function hideWebGLNotification() {
+				const notification = document.getElementById('webgl-notification');
+				if (notification) {
+					notification.classList.add('hidden');
+				}
+			}
+
+			// Check WebGL support before initializing
+			if (!checkWebGLSupport()) {
+				showWebGLNotification();
+			} else {
+				// Initialize shader
+				try {
+					shaderWebBackground.shade({
+						onInit: function (ctx) {
+							mouseX = ctx.cssWidth / 2;
+							mouseY = ctx.cssHeight / 2;
+						},
+						onResize: function (width, height) {
+							minDimension = Math.min(width, height);
+						},
+						onBeforeFrame: function (ctx) {
+							var time = performance.now() / 1000;
+
+							// Convert mouse to shader coordinates
+							shaderMouseX = ctx.toShaderX(mouseX);
+							shaderMouseY = ctx.toShaderY(mouseY);
+
+							// Normalized coordinates
+							var stMouseX = (2 * shaderMouseX - ctx.width) / minDimension;
+							var stMouseY = (2 * shaderMouseY - ctx.height) / minDimension;
+
+							var targetX = stMouseX;
+							var targetY = stMouseY;
+
+							// Smooth blob movement
+							blobCenterX += (targetX - blobCenterX) * 0.15;
+							blobCenterY += (targetY - blobCenterY) * 0.15;
+
+							// Color shifts based on position and time
+							var distance = Math.sqrt(blobCenterX * blobCenterX + blobCenterY * blobCenterY);
+							var hue = (time * colorShiftSpeed + distance * 0.5) % 1.0;
+							blobColor[0] = 0.5 + 0.5 * Math.sin(hue * Math.PI * 2);
+							blobColor[1] = 0.5 + 0.5 * Math.sin((hue + 0.33) * Math.PI * 2);
+							blobColor[2] = 0.5 + 0.5 * Math.sin((hue + 0.66) * Math.PI * 2);
+						},
+						shaders: {
+							'blob-buffer': {
+								uniforms: {
+									iResolution: function (gl, loc, ctx) { gl.uniform2f(loc, ctx.width, ctx.height); },
+									iMinDimension: function (gl, loc) { gl.uniform1f(loc, minDimension); },
+									iFeedbackFadeRate: function (gl, loc) { gl.uniform1f(loc, feedbackFadeRate); },
+									iBlobCenter: function (gl, loc) { gl.uniform2f(loc, blobCenterX, blobCenterY); },
+									iBlobRadius: function (gl, loc) { gl.uniform1f(loc, blobRadius); },
+									iBlobColor: function (gl, loc) { gl.uniform3f(loc, blobColor[0], blobColor[1], blobColor[2]); },
+									iBlobIntensity: function (gl, loc) { gl.uniform1f(loc, blobIntensity); },
+									iChannel0: function (gl, loc, ctx) { ctx.texture(loc, ctx.buffers['blob-buffer']); }
+								}
+							},
+							'blob-image': {
+								uniforms: {
+									iResolution: function (gl, loc, ctx) { gl.uniform2f(loc, ctx.width, ctx.height); },
+									iChannel0: function (gl, loc, ctx) { ctx.texture(loc, ctx.buffers['blob-buffer']); }
+								}
+							}
+						}
+					});
+				} catch (error) {
+					console.error('Failed to initialize shader:', error);
+					showWebGLNotification();
+				}
+			}
 		})();
 	</script>
 
