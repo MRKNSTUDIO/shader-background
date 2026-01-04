@@ -73,23 +73,32 @@ npx serve .
 ## 📁 Project Structure
 
 ```
+/shader-background/
 ├── .cursor/
 │   └── rules/
-│       └── converting-from-shadertoy.mdc  ← AI conversion rules
-├── dist/
-│   └── shader-web-background.min.js       ← Core library
+│       ├── converting-from-shadertoy.mdc       ← AI conversion rules
+│       ├── css-styling.mdc                     ← CSS styling guidelines
+│       ├── interaction.mdc                     ← Mouse/gyro handling
+│       └── shader-testing-environment.mdc      ← Project documentation
+├── src/
+│   ├── shader-web-background.min.js            ← Core library
+│   ├── main.js                                 ← ShaderRegistry controller
+│   └── styles.css                              ← UI styling
 ├── shaders/
-│   ├── gradient.js                        ← Simple single-pass
-│   ├── feedback-circle.js                 ← Two-pass with buffer
-│   ├── spectral-feedback.js               ← Zucconi spectral colors
-│   ├── interactive-blob.js                ← Mouse/gyro interaction
-│   ├── voronoi-dreams.js                  ← Flowing silk ribbons
-│   └── shadertoy-example-*.js             ← Converted Shadertoy shaders
-├── index.html                             ← Main demo with UI
-├── minimal-example.html                   ← Clean integration example
-├── viewport-aware-example.html            ← Multi-canvas with viewport detection
-├── main.js                                ← ShaderRegistry controller
-└── styles.css                             ← UI styling
+│   ├── gradient.js                             ← Simple single-pass
+│   ├── feedback-circle.js                      ← Two-pass with buffer
+│   ├── spectral-feedback.js                    ← Zucconi spectral colors
+│   ├── interactive-blob.js                     ← Mouse/gyro interaction
+│   ├── demo-shader.js                          ← Advanced multi-input
+│   ├── voronoi-dreams.js                       ← Ethereal flowing ribbons
+│   └── shadertoy-example-*.js                  ← Converted Shadertoy shaders
+├── shadertoy/
+│   └── shadertoy-example-*.txt                 ← Original Shadertoy source code
+├── index.html                                  ← Main demo (shader source + UI)
+├── minimal-example.html                        ← Minimal integration example
+├── viewport-aware-example.html                 ← Performance-optimized example
+├── README.md                                   ← Project documentation
+└── favicon.ico                                 ← Site icon
 ```
 
 ---
