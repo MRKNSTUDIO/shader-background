@@ -10,10 +10,10 @@
 	<link rel="stylesheet" href="styles.css">
 
 	<!-- shader-web-background library -->
-	<script src="shader-web-background-main/dist/shader-web-background.min.js"></script>
+	<script src="dist/shader-web-background.min.js"></script>
 
 	<!--
-    SHADER 1: Simple Gradient
+    SHADER: Simple Gradient
     Single-pass animated gradient effect
   -->
 	<script type="x-shader/x-fragment" id="gradient-image">
@@ -34,7 +34,7 @@
   </script>
 
 	<!--
-    SHADER 2: Feedback Circle
+    SHADER: Feedback Circle
     Two-pass shader with moving circle and fading trail
   -->
 	<script type="x-shader/x-fragment" id="feedback-circle-buffer">
@@ -88,9 +88,9 @@
   </script>
 
 	<!--
-    SHADER 3: Spectral Feedback
+    SHADER: Spectral Feedback
     Two-pass shader with spectral color mapping and feedback effects
-    Adapted from demo.html - uses Zucconi spectral algorithm
+    Adapted from https://xemantic.github.io/shader-web-background/ - uses Zucconi spectral algorithm
   -->
 	<script type="x-shader/x-fragment" id="spectral-feedback-buffer">
     precision highp float;
@@ -152,6 +152,509 @@
     }
   </script>
 
+	<!--
+    SHADER: Interactive Blob
+    Two-pass shader with mouse and gyroscope interaction
+  -->
+	<script type="x-shader/x-fragment" id="interactive-blob-buffer">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform float iMinDimension;
+    uniform sampler2D iChannel0;
+    uniform float iFeedbackFadeRate;
+    uniform vec2 iBlobCenter;
+    uniform float iBlobRadius;
+    uniform vec3 iBlobColor;
+    uniform float iBlobIntensity;
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / iResolution;
+      vec2 st = (gl_FragCoord.xy * 2.0 - iResolution) / iMinDimension;
+
+      vec3 previousColor = texture2D(iChannel0, uv).rgb;
+      previousColor *= iFeedbackFadeRate;
+
+      float dist = distance(iBlobCenter, st);
+      float blob = smoothstep(iBlobRadius, iBlobRadius * 0.7, dist);
+      blob = pow(blob, 15.0);
+
+      vec3 drawColor = iBlobColor * blob * iBlobIntensity;
+
+      vec3 color = previousColor + drawColor;
+      color = clamp(color, 0.0, 1.0);
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+	<script type="x-shader/x-fragment" id="interactive-blob-image">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform sampler2D iChannel0;
+
+    void main() {
+      gl_FragColor = texture2D(iChannel0, gl_FragCoord.xy / iResolution);
+    }
+  </script>
+
+	<!--
+    SHADER: Demo Shader (from https://xemantic.github.io/shader-web-background/)
+    Advanced two-pass shader with spectral colors, mouse/gyro interaction, and scroll parallax
+  -->
+	<script type="x-shader/x-fragment" id="demo-feedback">
+    precision highp float;
+
+    uniform vec2      iResolution;
+    uniform float     iMinDimension;
+    uniform sampler2D iChannel0;
+    uniform vec2      iScreenRatioHalf;
+    uniform vec2      iFeedbackZoomCenter;
+    uniform float     iFeedbackZoomRate;
+    uniform vec2      iFeedbackShiftVector;
+    uniform float     iFeedbackFadeRate;
+    uniform float     iFeedbackColorShiftZoom;
+    uniform float     iFeedbackColorShiftImpact;
+    uniform vec2      iDrawCenter;
+    uniform float     iDrawIntensity;
+    uniform float     iBlobEdgeSmoothing;
+    uniform float     iBlob1Radius;
+    uniform float     iBlob1PowFactor;
+    uniform vec3      iBlob1Color;
+    uniform float     iBlob2Radius;
+    uniform float     iBlob2PowFactor;
+    uniform vec3      iBlob2Color;
+    uniform float     iColorShiftOfRadius;
+
+    vec4 repeatedTexture(in sampler2D channel, in vec2 uv) {
+      return texture2D(channel, mod(uv, 1.));
+    }
+
+    float drawBlob(
+      in vec2 st,
+      in vec2 center,
+      in float radius,
+      in float edgeSmoothing
+    ) {
+      float dist = length((st - center) / radius);
+      return dist * smoothstep(1., 1. - iBlobEdgeSmoothing, dist);
+    }
+
+    void main() {
+      vec2 uv = gl_FragCoord.xy / iResolution;
+      vec2 st = (gl_FragCoord.xy * 2. - iResolution) / iMinDimension;
+
+      float drawDist = length(st - iDrawCenter);
+
+      vec3 colorShift = repeatedTexture(
+        iChannel0,
+        uv - st * iFeedbackColorShiftZoom * iScreenRatioHalf
+      ).rgb;
+
+      vec2 stShift = vec2(0);
+      stShift += iFeedbackZoomRate * (st - iFeedbackZoomCenter);
+      stShift += (colorShift.rg - .5) * iFeedbackColorShiftImpact;
+      stShift += iFeedbackShiftVector;
+      stShift *= iScreenRatioHalf;
+
+      vec3 prevColor = repeatedTexture(iChannel0, uv - stShift).rgb;
+      prevColor *= iFeedbackFadeRate;
+
+      vec3 drawColor = vec3(0);
+
+      float radius =
+        1.
+        + (colorShift.r + colorShift.g + colorShift.b) * iColorShiftOfRadius;
+      drawColor +=
+        pow(
+          drawBlob(st, iDrawCenter, radius * iBlob1Radius, iBlobEdgeSmoothing),
+          iBlob1PowFactor
+        ) * iBlob1Color;
+      drawColor +=
+        pow(
+          drawBlob(st, iDrawCenter, radius * iBlob2Radius, iBlobEdgeSmoothing),
+          iBlob2PowFactor
+        ) * iBlob2Color;
+
+      vec3 color = vec3(0);
+      drawColor *= iDrawIntensity;
+      prevColor *= iFeedbackFadeRate;
+      color += prevColor;
+      color += drawColor;
+
+      color = clamp(color, 0., 1.);
+      gl_FragColor = vec4(color, 1.);
+    }
+  </script>
+
+	<script type="x-shader/x-fragment" id="demo-image">
+    precision highp float;
+
+    uniform vec2 iResolution;
+    uniform sampler2D iChannel0;
+
+    void main(){
+      gl_FragColor = texture2D(iChannel0, gl_FragCoord.xy / iResolution);
+    }
+  </script>
+
+	<!--
+    SHADER: Shadertoy Example 1
+    Single-pass 3D fractal raymarching shader
+    Source: https://www.shadertoy.com/view/tcyfz3
+  -->
+	<script type="x-shader/x-fragment" id="shadertoy-example-1-image">
+    precision highp float;
+
+    uniform float iTime;
+    uniform vec2 iResolution;
+
+    #define P(z) vec3(cos((z)*.06)*64., cos((z)*.09)*12., z)
+
+    vec3 customTanh(vec3 x) {
+        vec3 e2x = exp(2.0 * clamp(x, -10.0, 10.0));
+        return (e2x - 1.0) / (e2x + 1.0);
+    }
+
+    void main() {
+        float T = iTime;
+        float j = .003*dot(fract(sin(.07*T+gl_FragCoord.xy)), sin(gl_FragCoord.xy));
+        vec3 r = vec3(iResolution, 1.0);
+        mat2 rot = mat2(cos(cos(T*.2)*.6+vec4(0,33,11,0)));
+
+        vec2 u = (gl_FragCoord.xy+gl_FragCoord.xy - r.xy) / r.y;
+
+        vec3 p = P(T);
+        vec3 Z = normalize(P(T+2.) - p);
+        vec3 X = normalize(vec3(Z.z, 0, -Z.x));
+        vec3 D = vec3(rot*u, 1.) * mat3(-X, cross(X, Z), Z);
+
+        vec3 c = vec3(0.0);
+        float d = 0.0;
+        float s = 0.0;
+
+        for(int i = 0; i < 100; i++) {
+            if(d >= 10.0) break;
+
+            vec3 q = p;
+            p += j + D * s;
+            q = p;
+            d = 24.0;
+            s = 24.0;
+
+            // m(2., 6.)
+            s /= 2.0;
+            vec3 mp = abs(fract(q/s)*s - s*.5);
+            d = min(d, min(max(mp.x, mp.y), min(max(mp.y, mp.z), max(mp.x, mp.z))) - s/6.0);
+
+            // m(2., 4.)
+            s /= 2.0;
+            mp = abs(fract(q/s)*s - s*.5);
+            d = min(d, min(max(mp.x, mp.y), min(max(mp.y, mp.z), max(mp.x, mp.z))) - s/4.0);
+
+            // m(9., 4.)
+            s /= 9.0;
+            mp = abs(fract(q/s)*s - s*.5);
+            d = min(d, min(max(mp.x, mp.y), min(max(mp.y, mp.z), max(mp.x, mp.z))) - s/4.0);
+
+            p = abs(q - P(q.z));
+            s = min(4.0 - p.x, 2.0 - p.y);
+            s = max(s, .001 + .5*abs(min(d, cos(p.z))));
+            p = q;
+
+            c += s*vec3(5,2,1) + .04*vec3(1,2,5);
+        }
+
+        gl_FragColor = vec4(customTanh(c*c/2e3), 1.0);
+    }
+  </script>
+
+	<!--
+		SHADER: Shadertoy Example 2
+		Complex raymarching shader with procedural planet surface
+		Source: https://www.shadertoy.com/view/WfGfzK
+	  -->
+	<script type="x-shader/x-fragment" id="shadertoy-example-2-image">
+	    precision highp float;
+
+	    uniform float iTime;
+	    uniform vec2 iResolution;
+
+	    const vec4 hsv2rgb_K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+
+	    #define HSV2RGB(c)  (c.z * mix(hsv2rgb_K.xxx, clamp(abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www) - hsv2rgb_K.xxx, 0.0, 1.0), c.y))
+
+	    vec3 hsv2rgb(vec3 c) {
+	      vec3 p = abs(fract(c.xxx + hsv2rgb_K.xyz) * 6.0 - hsv2rgb_K.www);
+	      return c.z * mix(hsv2rgb_K.xxx, clamp(p - hsv2rgb_K.xxx, 0.0, 1.0), c.y);
+	    }
+
+	    const float PI=3.141592654;
+	    const float TAU=2.*PI;
+	    const float OFF=.7;
+	    const float PR =.66;
+	    const float ZZC =11.;
+
+	    const vec2 PA=vec2(6,1.41);
+	    const vec2 PB=vec2(.056,.035);
+	    const vec2 PO=vec2(25,3.3);
+
+	    const vec3 BY=HSV2RGB(vec3(.05+OFF,.7,.8));
+	    const vec3 BG=HSV2RGB(vec3(.95+OFF,.6,.3));
+	    const vec3 BW=HSV2RGB(vec3(.55+OFF,.3,2.));
+	    const vec3 BF=HSV2RGB(vec3(.82+OFF,.6,2.));
+	    const vec3 FC=.04*vec3(1,2,0);
+	    const vec3 LD=normalize(vec3(1,-0.5,3));
+	    const vec3 RN=normalize(vec3(-.1,1,.1));
+
+	    const vec4 GG=vec4(vec3(-700,300,1000),400.);
+	    const mat2 RM=mat2(1.2,1.6,-1.6,1.2);
+
+	    float hash(vec2 co) {
+	      return fract(sin(dot(co.xy ,vec2(12.9898,58.233))) * 13758.5453);
+	    }
+
+	    vec3 tanh_approx(vec3 x) {
+	      vec3 x2 = x*x;
+	      return clamp(x*(27.0 + x2)/(27.0+9.0*x2), -1.0, 1.0);
+	    }
+
+	    float ray_sphere(vec3 ro, vec3 rd, vec4 sph) {
+	      vec3 oc=ro - sph.xyz;
+	      float b=dot(oc, rd);
+	      float c=dot(oc, oc)- sph.w*sph.w;
+	      float h=b*b-c;
+	      if(h < 0.0) return -1.0;
+	      h=sqrt(h);
+	      return -b-h;
+	    }
+
+	    float ray_plane(vec3 ro, vec3 rd, vec4 p) {
+	      return -(dot(ro,p.xyz)+p.w)/dot(rd,p.xyz);
+	    }
+
+	    float doctahedron(vec3 p, float s) {
+	      p = abs(p);
+	      return (p.x+p.y+p.z-s)*0.57735027;
+	    }
+
+	    vec3 path(float z) {
+	      return vec3(PO+PA*cos(PB*z),z);
+	    }
+
+	    vec3 dpath(float z) {
+	      return vec3(-PA*PB*sin(PB*z),1);
+	    }
+
+	    vec3 ddpath(float z) {
+	      return vec3(-PA*PB*PB*cos(PB*z),0);
+	    }
+
+	    float dfbm(vec3 p) {
+	      float d=p.y+.6;
+	      float a=1.;
+	      vec2 D=vec2(0);
+	      vec2 P=.23*p.xz;
+
+	      for(int j=0;j<7;j++) {
+	        vec4 o=cos(P.xxyy+vec4(11,0,11,0));
+	        p=o.yxx*o.zwz;
+	        D+=p.xy;
+	        d-=a*(1.+p.z)/(1.+3.*dot(D,D));
+	        P*=RM;
+	        a*=.55;
+	      }
+	      return d;
+	    }
+
+	    float dpyramid(vec3 p, out vec3 oo) {
+	      vec2 n=floor(p.xz/ZZC+.5);
+	      p.xz-=n*ZZC;
+
+	      float h0=hash(n);
+	      float h1=fract(9677.*h0);
+	      float h =.3*ZZC*h0*h0+0.1;
+	      float d =doctahedron(p,h);
+
+	      oo=vec3(1e3,0,0);
+	      if(h1<PR) return 1e3;
+	      oo=vec3(d,h0,h);
+	      return d;
+	    }
+
+	    float df(vec3 p, out vec3 oo) {
+	      p.y=abs(p.y);
+	      float d0=dfbm(p);
+	      float d1=dpyramid(p,oo);
+	      float d=d0;
+	      d=min(d,d1);
+	      return d;
+	    }
+
+	    float fbm(float x) {
+	      float a=1.;
+	      float h=0.;
+
+	      for(int i=0;i<5;i++) {
+	        h+=a*sin(x);
+	        x*=2.03;
+	        x+=123.4;
+	        a*=.55;
+	      }
+	      return abs(h);
+	    }
+
+	    vec4 render(vec2 p2, vec2 q2) {
+	      float d=1.;
+	      float z=0.;
+	      float T=iTime*3.;
+
+	      vec3 oo;
+	      vec3 O=vec3(0);
+	      vec3 p;
+	      vec3 P=path(T);
+	      vec3 ZD=normalize(dpath(T)+vec3(0,-0.1,0));
+	      vec3 XX=normalize(cross(ZD,vec3(0,1,0)+ddpath(T)));
+	      vec3 YY=cross(XX,ZD);
+	      vec3 R=normalize(-p2.x*XX+p2.y*YY+2.*ZD);
+	      vec3 Y=(1.+R.x)*BY;
+	      vec3 S=(1.+R.y)*BW*Y;
+
+	      for(int i=0;i<50;i++) {
+	        if(d <= 1e-5 || z >= 2e2) break;
+	        p=z*R+P;
+	        d=df(p,oo);
+	        if(p.y>0.) {
+	          O+=BG+min(d,9.)*Y;
+	        } else {
+	          O+=S;
+	          oo.x*=9.;
+	        }
+
+	        O+=
+	            mix(.02,1.,.5+.5*sin(iTime+TAU*oo.y))
+	          * smoothstep(oo.z*.78,oo.z*.8,abs(p.y))
+	          / max(oo.x+oo.x*oo.x*oo.x*oo.x*9.,1e-2)
+	          * BF
+	          ;
+
+	        z+=d*.7;
+	      }
+
+	      O*=9E-3;
+
+	      if(R.y>0.0) {
+	        vec4 M=GG;
+	        S=M.xyz+P;
+	        M.xyz=S;
+	        z=ray_sphere(P,R,M);
+	        d=z;
+
+	        Y=vec3(.0);
+	        if(z>0.) {
+	          p=P+R*z;
+	          ZD=normalize(p-M.xyz);
+	          Y+=
+	              max(dot(LD,ZD),0.)
+	            * smoothstep(1.0,.89,1.+dot(R,ZD))
+	            * fbm(2e-2*dot(p,RN))
+	            ;
+	        }
+	        M=vec4(RN,-dot(RN,S));
+	        z=ray_plane(P,R,M);
+	        bool validZ = z > 0.0;
+	        bool validD = d > 0.0 && z < d;
+	        bool nanD = d != d;
+	        if(validZ && (validD || nanD)) {
+	          p=P+R*z;
+	          d=distance(S,p);
+	          Y+=
+	              abs(dot(LD,RN))
+	            * step(GG.w*1.41,d)
+	            * step(d,GG.w*2.)
+	            * fbm(.035*d)
+	            ;
+	        }
+	        Y*=smoothstep(0.0,0.2,R.y);
+	        Y+=clamp((hsv2rgb(vec3(OFF-.4*R.y,.5+1.*R.y,3./(1.+800.*R.y*R.y*R.y)))),0.,1.);
+
+	        O*=Y;
+	      }
+
+	      O-=(length(q2)+.2)*FC;
+	      O=tanh_approx(O);
+	      O=max(O,0.);
+	      O=sqrt(O);
+
+	      return vec4(O,1);
+	    }
+
+	    void main() {
+	      vec2 r=iResolution.xy;
+	      vec2 p2=(gl_FragCoord.xy+gl_FragCoord.xy-r)/r.y;
+	      vec2 q2=gl_FragCoord.xy/r;
+	      gl_FragColor=render(p2,q2);
+	    }
+	</script>
+
+	<!--
+    SHADER: Shadertoy Example 3
+    3D raymarching shader with rotating fractal structure
+    Source: https://www.shadertoy.com/view/MtsGzB
+  -->
+	<script type="x-shader/x-fragment" id="shadertoy-example-3-image">
+    precision highp float;
+
+    uniform float iTime;
+    uniform vec2 iResolution;
+
+    mat3 getRotYMat(float a) {
+      return mat3(cos(a), 0., sin(a), 0., 1., 0., -sin(a), 0., cos(a));
+    }
+
+    void main() {
+      vec2 s = iResolution;
+      float t = iTime * 0.2;
+      float c = 0.0;
+      float d = 0.0;
+      float m = 0.0;
+
+      vec3 p = vec3((2.0 * gl_FragCoord.xy - s) / s.x, 1.0);
+      vec3 r = p - p;
+      vec3 q = r;
+
+      p *= getRotYMat(-t);
+      q.zx += 10.0 + vec2(sin(t), cos(t)) * 3.0;
+
+      for (int iter = 0; iter < 100; iter++) {
+        float i = 1.0 - float(iter) * 0.01;
+        c = 0.0;
+        d = 0.0;
+        m = 1.0;
+
+        for (int j = 0; j < 3; j++) {
+          r = mod(q * m + 1.0, 2.0) - 1.0;
+          r = r * r;
+          r = r * r;
+          r = r * r;
+          r = max(r, r.yzx);
+          d = max(d, (0.29 - length(r) * 0.6) / m) * 0.8;
+          m *= 1.1;
+        }
+
+        q += p * d;
+        c = i;
+
+        if (d < 1e-5) break;
+      }
+
+      float k = dot(r, r + 0.15);
+      gl_FragColor = vec4(vec3(1.0, k, k / c) - 0.8, 1.0);
+    }
+  </script>
+
+
 </head>
 
 <body>
@@ -162,9 +665,242 @@
 			<option value="gradient">1. Simple Gradient</option>
 			<option value="feedback-circle">2. Feedback Circle</option>
 			<option value="spectral-feedback">3. Spectral Feedback</option>
+			<option value="interactive-blob">4. Interactive Blob</option>
+			<option value="demo-shader">5. Demo Shader</option>
+			<option value="shadertoy-example-1">6. Shadertoy Example 1</option>
+			<option value="shadertoy-example-2">7. Shadertoy Example 2</option>
+			<option value="shadertoy-example-3">8. Shadertoy Example 3</option>
 		</select>
 		<div id="shader-info"></div>
 	</div>
+
+	<!-- Demo Content -->
+	<main id="demo-content">
+		<section class="content-section">
+			<h1>Shader Web Background Toolkit</h1>
+			<p class="credits">Built with <a href="https://github.com/xemantic/shader-web-background"
+					target="_blank">shader-web-background</a> by xemantic &bull; Claude &bull; cursor.com</p>
+			<p>A complete development environment for creating WebGL shader backgrounds. This project includes
+				<strong>AI-assisted Shadertoy conversion rules</strong>, a shader registry system, and example implementations
+				ranging from simple gradients to complex raymarched fractals.
+			</p>
+		</section>
+
+		<section class="content-section">
+			<h2>🎯 What This Project Does</h2>
+			<p>This toolkit solves the common problem of porting Shadertoy shaders to production websites. While Shadertoy
+				uses WebGL 2.0 features, most production sites need WebGL 1.0 compatibility. This project provides:</p>
+			<ul>
+				<li><strong>AI Conversion Rules:</strong> Comprehensive <code>.cursor</code> rules that teach any AI assistant
+					how to convert Shadertoy code automatically</li>
+				<li><strong>Shader Registry:</strong> A clean JavaScript API for registering and switching between multiple
+					shaders</li>
+				<li><strong>Working Examples:</strong> From simple gradients to complex multi-pass feedback loops</li>
+				<li><strong>Interaction Handling:</strong> Mouse, scroll parallax, and device orientation support</li>
+			</ul>
+		</section>
+
+		<section class="content-section">
+			<h2>📁 Project Structure</h2>
+			<pre><code>shader-bg/
+├── .cursor/
+│   └── rules/
+│       └── converting-from-shadertoy.mdc  ← AI conversion rules
+├── dist/
+│   └── shader-web-background.min.js       ← Core library
+├── shaders/
+│   ├── gradient.js                        ← Simple single-pass
+│   ├── feedback-circle.js                 ← Two-pass with buffer
+│   ├── spectral-feedback.js               ← Zucconi spectral colors
+│   ├── interactive-blob.js                ← Mouse/gyro interaction
+│   └── shadertoy-example-*.js             ← Converted Shadertoy shaders
+├── index.html                             ← Shader source + UI
+├── main.js                                ← ShaderRegistry controller
+└── styles.css                             ← UI styling</code></pre>
+		</section>
+
+		<section class="content-section">
+			<h2>🤖 AI Conversion Rules</h2>
+			<p>The <code>.cursor/rules/converting-from-shadertoy.mdc</code> file contains comprehensive conversion
+				instructions for AI assistants. When working with Shadertoy code, the AI will automatically:</p>
+			<ul>
+				<li>Convert <code>mainImage()</code> → <code>main()</code> entry point</li>
+				<li>Replace <code>fragCoord</code> / <code>fragColor</code> with GLSL equivalents</li>
+				<li>Fix <code>iResolution</code> type mismatch (vec3 → vec2)</li>
+				<li>Rewrite complex for-loops to WebGL 1.0 compatible form</li>
+				<li>Implement missing functions like <code>tanh()</code>, <code>isnan()</code>, <code>round()</code></li>
+				<li>Expand problematic macros and fix variable shadowing</li>
+				<li>Convert <code>texture()</code> → <code>texture2D()</code></li>
+			</ul>
+		</section>
+
+		<section class="content-section">
+			<h2>💡 Using the Rules in Cursor</h2>
+			<p>Cursor IDE automatically detects the <code>.cursor/rules/</code> folder. When you paste Shadertoy code and ask
+				the AI to convert it, the rules are applied automatically.</p>
+			<pre><code>// Just ask:
+"Convert this Shadertoy shader to work with shader-web-background"
+
+// The AI will apply all 10 conversion steps:
+// 1. Entry point conversion
+// 2. iResolution type fix
+// 3. For loop restrictions
+// 4. Missing function implementations
+// 5. Variable declaration cleanup
+// 6. Macro expansion
+// 7. Name conflict resolution
+// 8. Boolean/float type mixing
+// 9. Multi-pass buffer setup
+// 10. Texture sampling syntax</code></pre>
+		</section>
+
+		<section class="content-section">
+			<h2>🔧 Using Rules in Other IDEs</h2>
+			<p>Not using Cursor? Copy the rules to your AI-enabled IDE:</p>
+			<ul>
+				<li><strong>VS Code + Copilot/Codeium:</strong> Create <code>.github/copilot-instructions.md</code> and paste
+					the rule contents</li>
+				<li><strong>JetBrains + AI Assistant:</strong> Add to project-level AI context or custom prompts</li>
+				<li><strong>Windsurf:</strong> Use <code>.windsurfrules</code> file in project root</li>
+				<li><strong>Any AI Chat:</strong> Paste the rules as system context before your conversion request</li>
+			</ul>
+			<p>The rules are written as general GLSL conversion instructions—they work with any AI model that understands
+				code.</p>
+		</section>
+
+		<section class="content-section">
+			<h2>📝 Adding Your Own Shaders</h2>
+			<p><strong>Step 1:</strong> Add shader source to <code>index.html</code></p>
+			<pre><code>&lt;script type="x-shader/x-fragment" id="my-shader-image"&gt;
+precision highp float;
+uniform float iTime;
+uniform vec2 iResolution;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / iResolution;
+    vec3 col = 0.5 + 0.5 * cos(iTime + uv.xyx + vec3(0, 2, 4));
+    gl_FragColor = vec4(col, 1.0);
+}
+&lt;/script&gt;</code></pre>
+			<br>
+			<p><strong>Step 2:</strong> Create registration file <code>shaders/my-shader.js</code></p>
+			<pre><code>ShaderRegistry.register('my-shader', {
+  shaders: {
+    'my-shader-image': {
+      uniforms: {
+        iTime: (gl, loc) =&gt; gl.uniform1f(loc, performance.now() / 1000),
+        iResolution: (gl, loc, ctx) =&gt; gl.uniform2f(loc, ctx.width, ctx.height)
+      }
+    }
+  }
+}, '&lt;strong&gt;My Shader&lt;/strong&gt; Custom description here.');</code></pre>
+			<br>
+			<p><strong>Step 3:</strong> Add dropdown option and script include in <code>index.html</code></p>
+			<pre><code>&lt;option value="my-shader"&gt;My Shader&lt;/option&gt;
+&lt;script src="shaders/my-shader.js"&gt;&lt;/script&gt;</code></pre>
+		</section>
+
+		<section class="content-section">
+			<h2>🔄 Multi-Pass Shaders (Feedback Buffers)</h2>
+			<p>For shaders that need previous frame data (trails, blur, reaction-diffusion), use a two-pass setup:</p>
+			<pre><code>// Buffer pass: reads from itself, writes processed result
+'my-shader-buffer': {
+  uniforms: {
+    iChannel0: (gl, loc, ctx) =&gt; ctx.texture(loc, ctx.buffers['my-shader-buffer']),
+    iResolution: (gl, loc, ctx) =&gt; gl.uniform2f(loc, ctx.width, ctx.height)
+  }
+}
+
+// Image pass: reads buffer and outputs to screen
+'my-shader-image': {
+  uniforms: {
+    iChannel0: (gl, loc, ctx) =&gt; ctx.texture(loc, ctx.buffers['my-shader-buffer']),
+    iResolution: (gl, loc, ctx) =&gt; gl.uniform2f(loc, ctx.width, ctx.height)
+  }
+}</code></pre>
+			<p>The library handles double-buffering automatically—you read from the previous frame and write to the current
+				frame.</p>
+		</section>
+
+		<section class="content-section">
+			<h2>🖱️ Mouse & Gyro Interaction</h2>
+			<p>The library provides coordinate conversion helpers. Handle events in your application code:</p>
+			<pre><code>// Track mouse position
+let mouseX = 0, mouseY = 0;
+document.addEventListener('mousemove', (e) =&gt; {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+});
+
+// Convert in onBeforeFrame callback
+onBeforeFrame: (ctx) =&gt; {
+    shaderMouseX = ctx.toShaderX(mouseX);
+    shaderMouseY = ctx.toShaderY(mouseY);
+}
+
+// Pass as uniforms
+uniforms: {
+    iMouse: (gl, loc) =&gt; gl.uniform2f(loc, shaderMouseX, shaderMouseY)
+}</code></pre>
+			<p>Device orientation uses the same pattern with <code>deviceorientation</code> events and
+				<code>beta</code>/<code>gamma</code> values.
+			</p>
+		</section>
+
+		<section class="content-section">
+			<h2>⚡ Quick Shadertoy Conversion Checklist</h2>
+			<ul class="checklist">
+				<li>Add <code>precision highp float;</code> at top</li>
+				<li>Declare uniforms: <code>iTime</code>, <code>iResolution</code>, <code>iChannel0</code>...</li>
+				<li><code>mainImage(out vec4 fragColor, vec2 fragCoord)</code> → <code>void main()</code></li>
+				<li><code>fragCoord</code> → <code>gl_FragCoord.xy</code></li>
+				<li><code>fragColor</code> → <code>gl_FragColor</code></li>
+				<li><code>vec3 r = iResolution</code> → <code>vec3 r = vec3(iResolution, 1.0)</code></li>
+				<li>Complex for-loops → simple <code>for(int i=0; i&lt;N; i++)</code> with break</li>
+				<li><code>tanh(x)</code> → custom implementation</li>
+				<li><code>isnan(x)</code> → <code>x != x</code></li>
+				<li><code>texture()</code> → <code>texture2D()</code></li>
+			</ul>
+		</section>
+
+		<section class="content-section">
+			<h2>🎨 Included Shader Examples</h2>
+			<p>Use the dropdown in the top-right corner to switch between shaders:</p>
+			<ul>
+				<li><strong>Simple Gradient:</strong> Single-pass animated color cycling using sin waves</li>
+				<li><strong>Feedback Circle:</strong> Orbiting circle with fading trail—demonstrates buffer feedback</li>
+				<li><strong>Spectral Feedback:</strong> Zucconi spectral algorithm for natural rainbow colors</li>
+				<li><strong>Interactive Blob:</strong> Mouse and gyroscope controlled metaballs with trails</li>
+				<li><strong>Demo Shader:</strong> Advanced multi-input: mouse, scroll parallax, device orientation</li>
+				<li><strong>Shadertoy Examples 1-3:</strong> Real-world Shadertoy ports demonstrating conversion techniques</li>
+			</ul>
+		</section>
+
+		<section class="content-section">
+			<h2>📚 Resources</h2>
+			<ul>
+				<li><a href="https://github.com/xemantic/shader-web-background" target="_blank">shader-web-background GitHub</a>
+					— Original library by xemantic</li>
+				<li><a href="https://www.shadertoy.com" target="_blank">Shadertoy</a> — Shader community and inspiration</li>
+				<li><a href="https://thebookofshaders.com" target="_blank">The Book of Shaders</a> — Learn GLSL fundamentals
+				</li>
+				<li><a href="https://iquilezles.org/articles/" target="_blank">Inigo Quilez Articles</a> — Advanced shader
+					techniques</li>
+			</ul>
+		</section>
+
+		<section class="content-section">
+			<h2>🚀 Getting Started</h2>
+			<ol>
+				<li>Download or clone this repository from GitHub</li>
+				<li>Open <code>index.html</code> in a browser (use a local server for best results)</li>
+				<li>Use the dropdown to switch between shader examples</li>
+				<li>Copy any shader as a template for your own creations</li>
+				<li>Paste Shadertoy code and let AI handle the conversion using the included rules</li>
+			</ol>
+			<p class="credits" style="margin-top: 2rem;">Made with ❤️ for the shader community</p>
+		</section>
+	</main>
 
 	<!-- Main controller (defines ShaderRegistry) -->
 	<script src="main.js"></script>
@@ -173,6 +909,11 @@
 	<script src="shaders/gradient.js"></script>
 	<script src="shaders/feedback-circle.js"></script>
 	<script src="shaders/spectral-feedback.js"></script>
+	<script src="shaders/interactive-blob.js"></script>
+	<script src="shaders/demo-shader.js"></script>
+	<script src="shaders/shadertoy-example-1.js"></script>
+	<script src="shaders/shadertoy-example-2.js"></script>
+	<script src="shaders/shadertoy-example-3.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,108 @@
+---
+alwaysApply: true
+---
+
+## Mouse Interactions
+
+Mouse handling is done manually:
+
+1. Listen for `mousemove` events:
+```542:545:demo.html
+		document.addEventListener("mousemove", (event) => {
+			mouseX = event.clientX;
+			mouseY = event.clientY;
+		});
+```
+
+2. Convert CSS coordinates to shader coordinates in `onBeforeFrame` using `ctx.toShaderX()` and `ctx.toShaderY()`:
+```78:90:data/shader-web-background-main/demo/mouse.html
+      onBeforeFrame: (ctx) => {
+        time = performance.now() / 1000;
+
+        // Note: shader (0, 0) pixel coordinates are actually (.5, .5)
+        // and they are located at the bottom-left corner of the canvas.
+        // Also the actual pixel-perfect resolution might differ from so
+        // called CSS pixels depending on the device or zoom level. See:
+        //
+        // https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio
+        //
+        // therefore we need to translate to shader coordinates through the context
+        shaderMouseX = ctx.toShaderX(mouseX);
+        shaderMouseY = ctx.toShaderY(mouseY);
+      },
+```
+
+3. Pass as uniforms to the shader:
+```94:98:data/shader-web-background-main/demo/mouse.html
+          uniforms: {
+            iResolution:   (gl, loc, ctx) => gl.uniform2f(loc, ctx.width, ctx.height),
+            iTime:         (gl, loc) => gl.uniform1f(loc, time),
+            iMinDimension: (gl, loc) => gl.uniform1f(loc, minDimension),
+            iMouse:        (gl, loc) => gl.uniform2f(loc, shaderMouseX, shaderMouseY)
+          }
+```
+
+## Device Orientation / Gyroscope
+
+Device orientation is handled similarly:
+
+1. Listen for `deviceorientation` events:
+```475:492:demo.html
+		function handleDeviceOrientationChange(event) {
+			if (event.beta) {
+				if (tiltFBDelta) {
+					tiltFB = event.beta - tiltFBDelta;
+				} else {  // first reading or calibration
+					tiltFBDelta = event.beta;
+					tiltFB = 0;
+				}
+			}
+			if (event.gamma) {
+				tiltLR = event.gamma;
+			}
+		}
+
+		const deviceOrientationEvent = "deviceorientation";
+
+		function trackDeviceOrientation() {
+			window.addEventListener(deviceOrientationEvent, handleDeviceOrientationChange, false);
+		}
+```
+
+2. Request permission on iOS:
+```503:518:demo.html
+		function initDeviceOrientation() {
+			if (DeviceOrientationEvent.requestPermission) {
+				DeviceOrientationEvent.requestPermission()
+					.then(response => {
+						if (response == "granted") {
+							tiltFBDelta = null;
+							untrackDeviceOrientation(); // just in case it is subsequent attempt
+							trackDeviceOrientation();
+						}
+					})
+					.catch(console.error);
+			} else {
+				trackDeviceOrientation();
+				tiltFBDelta = null;
+			}
+		}
+```
+
+3. Use the values in `onBeforeFrame`:
+```588:594:demo.html
+				if (tiltFBDelta) { // we have device orientation readings, better than mouse
+					feedbackShiftVectorX = tiltLR * feedbackTiltShiftFactor;
+					feedbackShiftVectorY += tiltFB * -feedbackTiltShiftFactor;
+				} else {
+					feedbackShiftVectorX = stMouseX * feedbackMouseShiftFactor;
+					feedbackShiftVectorY += stMouseY * feedbackMouseShiftFactor;
+				}
+```
+
+## Summary
+
+- Mouse: use `mousemove` → convert with `ctx.toShaderX/Y()` → pass as uniforms
+- Gyro: use `deviceorientation` → process `beta`/`gamma` → pass as uniforms
+- The library provides `ctx.toShaderX()` and `ctx.toShaderY()` for coordinate conversion
+- All interaction handling happens in your application code, typically in `onBeforeFrame` callbacks

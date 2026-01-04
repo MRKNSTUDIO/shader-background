@@ -1,5 +1,5 @@
 /**
- * Shader 2: Feedback Circle
+ * Shader: Feedback Circle
  *
  * Two-pass shader demonstrating the feedback loop technique.
  * A moving circle leaves a fading trail as it orbits the screen.

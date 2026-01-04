@@ -1,43 +1,125 @@
 ---
 alwaysApply: true
 ---
+
 ## Shader Testing Environment
 
-### Files Created
+A complete development environment for creating WebGL shader backgrounds using the shader-web-background library. This project includes AI-assisted Shadertoy conversion rules, a shader registry system, and example implementations.
+
+### Project Structure
+
+```
+shader-bg/
+├── .cursor/
+│   └── rules/
+│       ├── converting-from-shadertoy.mdc   ← AI conversion rules
+│       ├── shader-testing-environment.mdc  ← This file
+│       └── interaction.mdc                 ← Mouse/gyro handling
+├── dist/
+│   └── shader-web-background.min.js        ← Core library
+├── shaders/
+│   ├── gradient.js                         ← Simple single-pass
+│   ├── feedback-circle.js                  ← Two-pass with buffer
+│   ├── spectral-feedback.js                ← Zucconi spectral colors
+│   ├── interactive-blob.js                 ← Mouse/gyro interaction
+│   ├── demo-shader.js                      ← Advanced multi-input
+│   └── shadertoy-example-*.js              ← Converted Shadertoy shaders
+├── index.html                              ← Shader source + UI
+├── main.js                                 ← ShaderRegistry controller
+└── styles.css                              ← UI styling
+```
+
+### Core Files
 
 1. **`index.html`** - Main HTML with:
    - All shader source code in `<script type="x-shader/x-fragment">` tags
    - Dropdown selector UI for switching between shaders
    - Import of shader-web-background library
+   - Demo content explaining the project
 
 2. **`styles.css`** - UI styling with:
    - Semi-transparent overlay for the shader selector
    - Backdrop blur effect
    - Proper z-indexing to float above the shader canvas
 
-3. **`main.js`** - Shader registry with:
-   - `ShaderRegistry.register()` for adding new shaders
-   - `ShaderRegistry.start()` for switching shaders
+3. **`main.js`** - Shader registry controller:
+   - `ShaderRegistry.register(id, config, description)` - Register a shader
+   - `ShaderRegistry.start(id)` - Switch to a shader
+   - `ShaderRegistry.stop()` - Clean up current shader
    - Automatic cleanup when switching between shaders
 
-4. **`shaders/gradient.js`** - Simple animated gradient:
+### Shader Registry API
+
+The `ShaderRegistry` object provides a clean API for managing multiple shaders:
+
+```javascript
+// Register a shader
+ShaderRegistry.register('my-shader', {
+  shaders: {
+    'my-shader-image': {
+      uniforms: {
+        iTime: (gl, loc) => gl.uniform1f(loc, performance.now() / 1000),
+        iResolution: (gl, loc, ctx) => gl.uniform2f(loc, ctx.width, ctx.height)
+      }
+    }
+  }
+}, '<strong>My Shader</strong> Description here.');
+
+// Start a shader
+ShaderRegistry.start('my-shader');
+
+// Stop current shader (called automatically when switching)
+ShaderRegistry.stop();
+```
+
+### Example Shaders
+
+1. **`shaders/gradient.js`** - Simple animated gradient:
    - Single-pass shader
    - Time-based color animation using sin waves
    - Demonstrates basic `iTime` and `iResolution` uniforms
 
-5. **`shaders/feedback-circle.js`** - Feedback loop with trail:
+2. **`shaders/feedback-circle.js`** - Feedback loop with trail:
    - Two-pass shader (buffer + image)
    - Orbiting circle with fading trail effect
    - Demonstrates `iChannel0` buffer sampling
 
-6. **`shaders/spectral-feedback.js`** - Spectral color feedback:
+3. **`shaders/spectral-feedback.js`** - Spectral color feedback:
    - Two-pass shader with the Zucconi spectral algorithm
    - Creates natural rainbow colors that cycle over time
    - Flowing feedback patterns adapted from xemantic.com
 
-### How to Add New Shaders
+4. **`shaders/interactive-blob.js`** - Mouse and gyroscope interaction:
+   - Metaball blob that responds to mouse/device orientation
+   - Demonstrates coordinate conversion with `ctx.toShaderX/Y()`
+   - Shows interaction handling patterns
 
-To add a new shader, create a file in `shaders/` and register it:
+5. **`shaders/demo-shader.js`** - Advanced multi-input shader:
+   - Combines mouse, scroll parallax, and device orientation
+   - Complex feedback loops with multiple passes
+   - Demonstrates advanced interaction patterns
+
+### Adding New Shaders
+
+#### Single-Pass Shader
+
+**Step 1:** Add shader source to `index.html`:
+
+```html
+<script type="x-shader/x-fragment" id="my-shader-image">
+precision highp float;
+uniform float iTime;
+uniform vec2 iResolution;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / iResolution;
+    vec3 col = 0.5 + 0.5 * cos(iTime + uv.xyx + vec3(0, 2, 4));
+    gl_FragColor = vec4(col, 1.0);
+}
+</script>
+```
+
+**Step 2:** Create registration file `shaders/my-shader.js`:
 
 ```javascript
 ShaderRegistry.register('my-shader', {
@@ -49,7 +131,102 @@ ShaderRegistry.register('my-shader', {
       }
     }
   }
-}, '<strong>My Shader</strong>Description here.');
+}, '<strong>My Shader</strong> Custom description here.');
 ```
 
-Then add the corresponding `<script id="my-shader-image">` in `index.html` and an `<option>` in the dropdown.
+**Step 3:** Add dropdown option and script include in `index.html`:
+
+```html
+<option value="my-shader">My Shader</option>
+<script src="shaders/my-shader.js"></script>
+```
+
+#### Multi-Pass Shader (Feedback Buffer)
+
+For shaders that need previous frame data (trails, blur, reaction-diffusion):
+
+**Shader source in `index.html`:**
+
+```html
+<script type="x-shader/x-fragment" id="my-shader-buffer">
+precision highp float;
+uniform vec2 iResolution;
+uniform sampler2D iChannel0;
+uniform float iTime;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / iResolution;
+    vec4 prev = texture2D(iChannel0, uv);
+    // Process previous frame
+    gl_FragColor = mix(prev, newValue, 0.1);
+}
+</script>
+
+<script type="x-shader/x-fragment" id="my-shader-image">
+precision highp float;
+uniform vec2 iResolution;
+uniform sampler2D iChannel0;
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / iResolution;
+    gl_FragColor = texture2D(iChannel0, uv);
+}
+</script>
+```
+
+**Registration in `shaders/my-shader.js`:**
+
+```javascript
+ShaderRegistry.register('my-shader', {
+  shaders: {
+    'my-shader-buffer': {
+      uniforms: {
+        iChannel0: (gl, loc, ctx) => ctx.texture(loc, ctx.buffers['my-shader-buffer']),
+        iResolution: (gl, loc, ctx) => gl.uniform2f(loc, ctx.width, ctx.height),
+        iTime: (gl, loc) => gl.uniform1f(loc, performance.now() / 1000)
+      }
+    },
+    'my-shader-image': {
+      uniforms: {
+        iChannel0: (gl, loc, ctx) => ctx.texture(loc, ctx.buffers['my-shader-buffer']),
+        iResolution: (gl, loc, ctx) => gl.uniform2f(loc, ctx.width, ctx.height)
+      }
+    }
+  }
+}, '<strong>My Shader</strong> Multi-pass feedback shader.');
+```
+
+The library handles double-buffering automatically—you read from the previous frame and write to the current frame.
+
+### Interaction Handling
+
+Mouse and device orientation are handled in your application code, not by the library. See `.cursor/rules/interaction.mdc` for detailed patterns.
+
+**Mouse:**
+- Listen for `mousemove` events
+- Convert coordinates in `onBeforeFrame` using `ctx.toShaderX()` and `ctx.toShaderY()`
+- Pass as uniforms to shader
+
+**Device Orientation:**
+- Listen for `deviceorientation` events
+- Process `beta`/`gamma` values
+- Request permission on iOS with `DeviceOrientationEvent.requestPermission()`
+
+### Common Uniforms
+
+| Uniform | Type | JavaScript Setup |
+|---------|------|------------------|
+| `iTime` | `float` | `gl.uniform1f(loc, performance.now() / 1000)` |
+| `iResolution` | `vec2` | `gl.uniform2f(loc, ctx.width, ctx.height)` |
+| `iMouse` | `vec2` | `gl.uniform2f(loc, mouseX, mouseY)` |
+| `iChannel0` | `sampler2D` | `ctx.texture(loc, ctx.buffers['buffer-id'])` |
+
+### Shadertoy Conversion
+
+When adding Shadertoy shaders, use the conversion rules in `.cursor/rules/converting-from-shadertoy.mdc`. The AI will automatically handle:
+- Entry point conversion (`mainImage` → `main`)
+- Variable replacements (`fragCoord` → `gl_FragCoord.xy`)
+- Type fixes (`iResolution` vec3 → vec2)
+- For loop restrictions
+- Missing function implementations
+- Texture sampling syntax (`texture()` → `texture2D()`)
