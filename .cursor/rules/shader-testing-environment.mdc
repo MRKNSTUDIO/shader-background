@@ -9,7 +9,7 @@ A complete development environment for creating WebGL shader backgrounds using t
 ### Project Structure
 
 ```
-shader-bg/
+shader-background/
 ├── .cursor/
 │   └── rules/
 │       ├── converting-from-shadertoy.mdc   ← AI conversion rules
