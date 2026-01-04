@@ -108,7 +108,7 @@
    ============================================ */
 :root {
 	/* Container Width */
-	--content-width: 900px;
+	--content-width: 920px;
 	--content-width-safe: min(var(--content-width), calc(100% - var(--gutter) * 2));
 }
 
@@ -200,8 +200,11 @@ h3 {
 }
 
 p {
-	font-size: var(--text-l);
+	font-size: var(--text-m);
 	color: var(--text-light-muted);
+}
+
+p:not(:last-child) {
 	margin-bottom: var(--space-m);
 }
 
@@ -255,7 +258,7 @@ ol {
 
 .section p.lead,
 .content-section p:first-of-type {
-	font-size: var(--text-l);
+	font-size: var(--text-m);
 	color: var(--text-light-muted);
 }
 
@@ -284,7 +287,7 @@ ol {
 
 .content-block ul,
 .content-section ul {
-	margin-top: var(--space-m);
+	margin-block: var(--space-s);
 }
 
 .content-block li,
@@ -738,7 +741,7 @@ pre[class*=language-][class*=language-] {
 	border: 2px solid rgba(255, 165, 0, 0.5);
 	border-radius: var(--radius-l);
 	padding: var(--space-xl);
-	max-width: 500px;
+	max-width: 512px;
 	width: 100%;
 	color: var(--white);
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -894,9 +897,9 @@ pre[class*=language-][class*=language-] {
 
 /* Checklist styling for index.html */
 .checklist li {
-	list-style: none;
-	padding-left: var(--space-l);
+	list-style: square;
 	position: relative;
+	color: var(--text-light);
 }
 
 .checklist li::before {
