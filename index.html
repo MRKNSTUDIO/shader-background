@@ -370,29 +370,44 @@
       float n2 = fbm(st * 1.5 + vec2(5.2, 1.3) + t * 0.25);
       displacement += vec2(n1 - 0.5, n2 - 0.5) * 0.6;
 
-      // Mouse creates wobbly ripple disturbance
+      // Gravitational vortex around mouse
       vec2 toMouse = st - mouse;
       float mouseDist = length(toMouse);
+      vec2 mouseDir = normalize(toMouse + 0.001);
 
-      // Velocity increases ripple density (more rings when moving)
-      float freqBoost = 1.0 + iVelocity * 3.0;
-      float ampBoost = 1.0 + iVelocity * 0.5;
+      // Vortex with wide influence radius
+      float vortexRadius = 2.5;
+      float vortexFalloff = smoothstep(vortexRadius, 0.0, mouseDist);
+      float vortexPower = vortexFalloff * vortexFalloff; // Quadratic for dramatic center
 
-      // Multiple wobble frequencies for organic feel
-      float ripple1 = sin(mouseDist * 12.0 * freqBoost - iTime * 3.5) * exp(-mouseDist * 0.8);
-      float ripple2 = sin(mouseDist * 7.0 * freqBoost - iTime * 2.2 + 1.0) * exp(-mouseDist * 1.0) * 0.6;
-      float ripple3 = cos(mouseDist * 18.0 * freqBoost - iTime * 4.5) * exp(-mouseDist * 1.2) * 0.3;
-      float ripple = (ripple1 + ripple2 + ripple3) * ampBoost;
+      // Spiral rotation - stronger near center and with velocity
+      float baseSpiral = 2.0 + iVelocity * 6.0;
+      float spiralAngle = vortexPower * baseSpiral;
 
-      // Perpendicular wobble for swirling effect
-      vec2 perpendicular = vec2(-toMouse.y, toMouse.x);
-      float swirl = sin(mouseDist * 5.0 * freqBoost - iTime * 1.8) * exp(-mouseDist * 0.9) * 0.4 * ampBoost;
+      // Rotate the displacement direction around mouse
+      float c = cos(spiralAngle);
+      float s = sin(spiralAngle);
+      vec2 swirlDir = vec2(mouseDir.x * c - mouseDir.y * s, mouseDir.x * s + mouseDir.y * c);
 
-      displacement += normalize(toMouse + 0.001) * ripple * 0.4;
-      displacement += normalize(perpendicular + 0.001) * swirl * mouseInfluence;
+      // Strong swirl tangent to the mouse direction
+      vec2 swirl = swirlDir * vortexPower * 1.5;
 
-      // Apply displacement to sample position
-      vec2 flowUV = st + displacement * 0.15;
+      // Gravitational pull - sucks fabric toward mouse
+      float pullIntensity = 0.8 + iVelocity * 2.0;
+      vec2 gravity = -mouseDir * vortexPower * pullIntensity;
+
+      // Black hole core - extreme warping at center
+      float coreIntensity = smoothstep(0.4, 0.0, mouseDist);
+      vec2 coreWarp = -mouseDir * coreIntensity * coreIntensity * 2.0;
+
+      // Chaotic turbulence amplified by velocity
+      float chaos = (fbm(st * 3.0 + iTime * 0.5) - 0.5) * 2.0;
+      vec2 turbulence = vec2(chaos, -chaos) * vortexFalloff * (0.3 + iVelocity * 1.5);
+
+      displacement += swirl + gravity + coreWarp + turbulence;
+
+      // Apply displacement - bigger multiplier for visible effect
+      vec2 flowUV = st + displacement * 0.4;
 
       // Create silk ribbon layers with displaced coordinates
       float silk = 0.0;
@@ -828,8 +843,6 @@
       gl_FragColor = vec4(vec3(1.0, k, k / c) - 0.8, 1.0);
     }
   </script>
-
-
 </head>
 
 <body>
@@ -860,6 +873,9 @@
 				<strong>AI-assisted Shadertoy conversion rules</strong>, a shader registry system, and example implementations
 				ranging from simple gradients to complex raymarched fractals.
 			</p>
+			<p><strong>🚀 Quick Start:</strong> Check out the <a href="minimal-example.html" target="_blank">minimal
+					example</a> for a clean,
+				self-contained integration example.</p>
 		</section>
 
 		<section class="content-section">
@@ -878,7 +894,7 @@
 
 		<section class="content-section">
 			<h2>📁 Project Structure</h2>
-			<pre><code>shader-bg/
+			<pre><code>/
 ├── .cursor/
 │   └── rules/
 │       └── converting-from-shadertoy.mdc  ← AI conversion rules

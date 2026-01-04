@@ -157,7 +157,8 @@
 		'<strong>Voronoi Dreams</strong> ' +
 		'Claude Opus 4.5 Test: ' +
 		'Ethereal silk ribbons flowing through deep space. ' +
-		'Move your mouse to send ripples through the fabric. ' +
+		'Move your mouse to create a gravitational vortex that warps and swirls the fabric. ' +
+		'Fast movement intensifies the black hole-like distortion. ' +
 		'Tilt your device to shift the drift direction. ' +
 		'Muted palette of ocean blues, teals, and soft rose.'
 	);
