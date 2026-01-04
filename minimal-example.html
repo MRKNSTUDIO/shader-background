@@ -5,73 +5,18 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Minimal Shader Background Example</title>
+	<!-- Google Fonts -->
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&display=swap">
+
+	<link rel="stylesheet" href="src/styles.css">
 	<style>
-		html,
 		body {
-			margin: 0;
-			padding: 0;
-			width: 100%;
-			min-height: 100vh;
-			min-height: 100dvh;
 			display: grid;
 			place-items: center;
 		}
 
-		/* Library automatically creates and positions the canvas */
-		#shader-web-background {
-			position: fixed;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			z-index: -1;
-		}
-
 		.content {
-			position: relative;
-			z-index: 1;
-			padding: 2rem;
-			color: white;
-			font-family: system-ui, sans-serif;
-			max-width: 600px;
-			margin: 0 auto;
 			mix-blend-mode: difference;
-		}
-
-		/* WebGL unsupported notification */
-		.webgl-notification {
-			position: fixed;
-			bottom: 20px;
-			left: 50%;
-			transform: translateX(-50%);
-			background: rgba(220, 53, 69, 0.95);
-			color: #fff;
-			padding: 12px 20px;
-			border-radius: 6px;
-			font-size: 13px;
-			z-index: 10001;
-			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-			backdrop-filter: blur(10px);
-			border: 1px solid rgba(255, 255, 255, 0.2);
-			animation: slideUp 0.3s ease-out;
-			max-width: 90%;
-			text-align: center;
-		}
-
-		@keyframes slideUp {
-			from {
-				transform: translateX(-50%) translateY(20px);
-				opacity: 0;
-			}
-
-			to {
-				transform: translateX(-50%) translateY(0);
-				opacity: 1;
-			}
-		}
-
-		.webgl-notification.hidden {
-			display: none;
 		}
 	</style>
 
@@ -132,8 +77,8 @@
 		⚠️ Shader cannot be played on this device
 	</div>
 
-	<!-- Shader library by xemantic -->
-	<script src="dist/shader-web-background.min.js"></script>
+	<!-- Shader library by xemantic (must load before shader initialization script) -->
+	<script src="src/shader-web-background.min.js"></script>
 
 	<!-- Shader code -->
 	<script>

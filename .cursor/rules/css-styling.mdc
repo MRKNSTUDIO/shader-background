@@ -1,0 +1,464 @@
+---
+globs: *.css
+alwaysApply: false
+---
+
+/* ============================================
+   KEY CONCEPTS
+   ============================================ */
+
+/* 1. Color System:
+   - Uses HSL format for themeability
+   - Pattern: {color}-{shade} (ultra-light to ultra-dark)
+   - Pattern: {color}-trans-{10-90} for transparency
+   - Contextual colors adapt to background (bg-ultra-light-text, etc.)
+
+2. Typography:
+   - Fluid responsive sizing with clamp()
+   - Separate heading and text font families
+   - Line heights use calc() with ex units
+
+3. Spacing:
+   - Two scales: space-* (small) and section-space-* (large)
+   - All values are fluid/responsive
+   - Contextual gaps: content-gap, container-gap, grid-gap
+
+4. Layout:
+   - Content-based width system (--content-width)
+   - Percentage widths based on content-width
+   - Auto-grids for responsive columns
+   - Grid templates for fixed layouts
+
+5. Utility Classes:
+   - BEM-like naming: .bg--{color}-{modifier}
+   - Consistent pattern across all utilities
+   - CSS custom properties enable easy theming
+
+6. Components:
+   - Use CSS custom properties for customization
+   - Variants via modifiers: .card--light, .card--dark
+   - Inline styles can override via CSS variables
+
+7. Smart Spacing:
+   - .smart-spacing class provides automatic spacing
+   - Context-aware spacing between elements
+   - Different spacing for headings vs paragraphs
+
+8. Responsive:
+   - Fluid typography and spacing
+   - Breakpoint-based adjustments for header-height, etc.
+   - Mobile-first approach
+*/
+
+```css
+/* ============================================
+   KEY CONCEPTS
+   ============================================ */
+
+/* 1. Color System:
+   - Uses HSL format for themeability
+   - Pattern: {color}-{shade} (ultra-light to ultra-dark)
+   - Pattern: {color}-trans-{10-90} for transparency
+   - Contextual colors adapt to background (bg-ultra-light-text, etc.)
+
+2. Typography:
+   - Fluid responsive sizing with clamp()
+   - Separate heading and text font families
+   - Line heights use calc() with ex units
+
+3. Spacing:
+   - Two scales: space-* (small) and section-space-* (large)
+   - All values are fluid/responsive
+   - Contextual gaps: content-gap, container-gap, grid-gap
+
+4. Layout:
+   - Content-based width system (--content-width)
+   - Percentage widths based on content-width
+   - Auto-grids for responsive columns
+   - Grid templates for fixed layouts
+
+5. Utility Classes:
+   - BEM-like naming: .bg--{color}-{modifier}
+   - Consistent pattern across all utilities
+   - CSS custom properties enable easy theming
+
+6. Components:
+   - Use CSS custom properties for customization
+   - Variants via modifiers: .card--light, .card--dark
+   - Inline styles can override via CSS variables
+
+7. Smart Spacing:
+   - .smart-spacing class provides automatic spacing
+   - Context-aware spacing between elements
+   - Different spacing for headings vs paragraphs
+
+8. Responsive:
+   - Fluid typography and spacing
+   - Breakpoint-based adjustments for header-height, etc.
+   - Mobile-first approach
+*/
+
+/* ============================================
+   COLOR SYSTEM
+   ============================================ */
+:root {
+	/* Color Shades Pattern: {color}-{shade} */
+	/* Shades: ultra-light, light, semi-light, semi-dark, dark, ultra-dark */
+	--primary: hsl(207 34% 51%);
+	--primary-hover: hsl(207 34% 63%);
+	--primary-ultra-light: hsl(207 34% 95%);
+	--primary-light: hsl(207 34% 87%);
+	--primary-semi-light: hsl(207 34% 65%);
+	--primary-semi-dark: hsl(207 34% 42%);
+	--primary-dark: hsl(207 34% 25%);
+	--primary-ultra-dark: hsl(207 34% 10%);
+
+	/* Transparency Pattern: {color}-trans-{10-90} */
+	--primary-trans-10: rgba(88, 135, 173, 0.1);
+	--primary-trans-50: rgba(88, 135, 173, 0.5);
+	--primary-trans-90: rgba(88, 135, 173, 0.9);
+
+	/* Same pattern applies to: secondary, tertiary, base, neutral */
+	--secondary: #76a47c;
+	--tertiary: #7c13df;
+	--base: #0d2026;
+	--neutral: #000000;
+	--white: #fff;
+	--black: #000;
+
+	/* Contextual Colors */
+	--bg-ultra-light: var(--neutral-ultra-light);
+	--bg-light: var(--neutral-light);
+	--bg-dark: var(--tertiary-dark);
+	--bg-ultra-dark: var(--tertiary-ultra-dark);
+	--text-light: var(--white);
+	--text-light-muted: color-mix(in srgb, var(--text-light) 80%, transparent);
+	--text-dark: var(--neutral-dark);
+	--text-dark-muted: color-mix(in srgb, var(--text-dark) 80%, transparent);
+}
+
+/* ============================================
+   TYPOGRAPHY SYSTEM
+   ============================================ */
+:root {
+	/* Text Sizes - Fluid clamp() for responsive scaling */
+	--text-xs: clamp(0.75rem, calc(-0.1858782904vw + 0.7918226153rem), 0.6331290249rem);
+	--text-s: clamp(0.8125rem, calc(0.0500373602vw + 0.8012415939rem), 0.8439609902rem);
+	--text-m: clamp(1rem, calc(0.1988071571vw + 0.9552683897rem), 1.125rem);
+	--text-l: clamp(1.2rem, calc(0.4765407555vw + 1.09277833rem), 1.499625rem);
+	--text-xl: clamp(1.44rem, calc(0.8890658052vw + 1.2399601938rem), 1.999000125rem);
+	--text-xxl: clamp(1.728rem, calc(1.489729092vw + 1.3928109543rem), 2.6646671666rem);
+
+	/* Heading Sizes */
+	--h6: clamp(0.75rem, calc(-0.073993329vw + 0.766648499rem), 0.7034766944rem);
+	--h5: clamp(0.8125rem, calc(0.1991800137vw + 0.7676844969rem), 0.9377344336rem);
+	--h4: clamp(1.125rem, calc(0.1988071571vw + 1.0802683897rem), 1.25rem);
+	--h3: clamp(1.35rem, calc(0.5029821074vw + 1.2368290258rem), 1.66625rem);
+	--h2: clamp(1.62rem, calc(0.9560417495vw + 1.4048906064rem), 2.22111125rem);
+	--h1: clamp(1.944rem, calc(1.6170835726vw + 1.5801561962rem), 2.9607412962rem);
+
+	/* Typography Properties */
+	--heading-font-family: Titillium Web, sans-serif;
+	--text-font-family: Quicksand, sans-serif;
+	--heading-font-weight: 700;
+	--heading-line-height: calc(8px + 2ex);
+	--text-line-height: calc(10px + 2ex);
+	--text-color: var(--text-light);
+}
+
+/* ============================================
+   SPACING SYSTEM
+   ============================================ */
+:root {
+	/* Base Spacing Scale - Fluid responsive */
+	--space-xs: clamp(0.8441720333rem, calc(-0.0172384889vw + 0.8480506933rem), 0.8333333333rem);
+	--space-s: clamp(1.1252813203rem, calc(0.1983597291vw + 1.0806503813rem), 1.25rem);
+	--space-m: clamp(1.5rem, calc(0.5964214712vw + 1.365805169rem), 1.875rem);
+	--space-l: clamp(1.9995rem, calc(1.2930417495vw + 1.7085656064rem), 2.8125rem);
+	--space-xl: clamp(2.6653335rem, calc(2.4706425447vw + 2.1094389274rem), 4.21875rem);
+	--space-xxl: clamp(3.5528895555rem, calc(4.4138933511vw + 2.5597635515rem), 6.328125rem);
+
+	/* Section Spacing (larger) */
+	--section-space-xs: clamp(1.6883440665rem, calc(1.2909040692vw + 1.3978906509rem), 2.5rem);
+	--section-space-s: clamp(2.2505626407rem, calc(2.3847910288vw + 1.7139846592rem), 3.75rem);
+	--section-space-m: clamp(3rem, calc(4.1749502982vw + 2.0606361829rem), 5.625rem);
+	--section-space-l: clamp(3.999rem, calc(7.0592445328vw + 2.4106699801rem), 8.4375rem);
+	--section-space-xl: clamp(5.330667rem, calc(11.6510266402vw + 2.709186006rem), 12.65625rem);
+	--section-space-xxl: clamp(7.105779111rem, calc(18.8923990282vw + 2.8549893296rem), 18.984375rem);
+
+	/* Contextual Gaps */
+	--content-gap: var(--space-m);
+	--container-gap: var(--space-xl);
+	--grid-gap: var(--space-m);
+	--gutter: clamp(1rem, calc(6.3618290258vw + -0.4314115308rem), 5rem);
+}
+
+/* ============================================
+   LAYOUT SYSTEM
+   ============================================ */
+:root {
+	/* Container Width */
+	--content-width: 85.375rem;
+	--content-width-safe: min(var(--content-width), calc(100% - var(--gutter) * 2));
+
+	/* Width Percentages */
+	--width-10: calc(var(--content-width) * 0.1);
+	--width-20: calc(var(--content-width) * 0.2);
+	--width-30: calc(var(--content-width) * 0.3);
+	--width-40: calc(var(--content-width) * 0.4);
+	--width-50: calc(var(--content-width) * 0.5);
+	--width-60: calc(var(--content-width) * 0.6);
+	--width-70: calc(var(--content-width) * 0.7);
+	--width-80: calc(var(--content-width) * 0.8);
+	--width-90: calc(var(--content-width) * 0.9);
+	--width-full: calc(var(--content-width) * 100%);
+
+	/* Grid Templates */
+	--grid-1: repeat(1, minmax(0, 1fr));
+	--grid-2: repeat(2, minmax(0, 1fr));
+	--grid-3: repeat(3, minmax(0, 1fr));
+	--grid-4: repeat(4, minmax(0, 1fr));
+	--grid-5: repeat(5, minmax(0, 1fr));
+	--grid-6: repeat(6, minmax(0, 1fr));
+	--grid-12: repeat(12, minmax(0, 1fr));
+
+	/* Auto Grids - Responsive column layouts */
+	--grid-auto-2: repeat(auto-fit, minmax(min(100%, max(calc((var(--content-width) - ((2 - 1) * var(--grid-gap))) / 2) * 0.7, (100% - (2 - 1) * var(--grid-gap)) / 2)), 1fr));
+	--grid-auto-3: repeat(auto-fit, minmax(min(100%, max(calc((var(--content-width) - ((3 - 1) * var(--grid-gap))) / 3) * 0.7, (100% - (3 - 1) * var(--grid-gap)) / 3)), 1fr));
+	--auto-grid-aggressiveness: 0.7;
+}
+
+/* ============================================
+   DESIGN TOKENS
+   ============================================ */
+:root {
+	/* Border Radius */
+	--radius: 8px;
+	--radius-xs: 3.5555555556px;
+	--radius-s: 5.3333333333px;
+	--radius-m: 8px;
+	--radius-l: 12px;
+	--radius-xl: 18px;
+	--radius-xxl: 27px;
+	--radius-50: 50%;
+	--radius-circle: 50vw;
+	--radius-none: 0;
+
+	/* Borders */
+	--border-width: 1px;
+	--border-style: solid;
+	--border-color-dark: var(--black-trans-20);
+	--border-color-light: var(--white-trans-20);
+	--border: var(--border-width) var(--border-style) var(--border-color-dark);
+
+	/* Shadows */
+	--box-shadow-m: 0 0 32px var(--black-trans-10);
+	--box-shadow-l: 0 0 60px var(--black-trans-20);
+	--box-shadow-xl: 0 0 80px var(--black-trans-30);
+
+	/* Transitions */
+	--transition-duration: 0.2s;
+	--transition-timing: ease-in-out;
+	--transition: background var(--transition-duration) var(--transition-timing), color var(--transition-duration) var(--transition-timing), border var(--transition-duration) var(--transition-timing);
+}
+
+/* ============================================
+   UTILITY CLASSES PATTERNS
+   ============================================ */
+
+/* Background Utilities Pattern: .bg--{color}-{shade} */
+.bg--primary {
+	background-color: var(--primary);
+}
+
+.bg--primary-hover {
+	background-color: var(--primary-hover);
+}
+
+.bg--primary-light {
+	background-color: var(--primary-light);
+}
+
+.bg--primary-dark {
+	background-color: var(--primary-dark);
+}
+
+.bg--primary-trans-10 {
+	background-color: var(--primary-trans-10);
+}
+
+.bg--primary-trans-50 {
+	background-color: var(--primary-trans-50);
+}
+
+/* Same pattern for: secondary, tertiary, base, neutral, white, black */
+
+/* Text Color Utilities Pattern: .text--{color} */
+.text--primary {
+	color: var(--primary);
+}
+
+.text--secondary {
+	color: var(--secondary);
+}
+
+.text--dark {
+	color: var(--text-dark);
+}
+
+.text--light {
+	color: var(--text-light);
+}
+
+/* Spacing Utilities Pattern: .space-{size} */
+.space-xs {
+	margin-block: var(--space-xs);
+}
+
+.space-s {
+	margin-block: var(--space-s);
+}
+
+.space-m {
+	margin-block: var(--space-m);
+}
+
+.space-l {
+	margin-block: var(--space-l);
+}
+
+/* Width Utilities Pattern: .width-{size} */
+.width-10 {
+	width: var(--width-10);
+}
+
+.width-50 {
+	width: var(--width-50);
+}
+
+.width-full {
+	width: var(--width-full);
+}
+
+/* Grid Utilities Pattern: .grid-{columns} */
+.grid-1 {
+	display: grid;
+	grid-template-columns: var(--grid-1);
+}
+
+.grid-2 {
+	display: grid;
+	grid-template-columns: var(--grid-2);
+}
+
+.grid-3 {
+	display: grid;
+	grid-template-columns: var(--grid-3);
+}
+
+.grid-auto-2 {
+	display: grid;
+	grid-template-columns: var(--grid-auto-2);
+}
+
+.grid-auto-3 {
+	display: grid;
+	grid-template-columns: var(--grid-auto-3);
+}
+
+/* ============================================
+   COMPONENT PATTERNS
+   ============================================ */
+
+/* Button Pattern */
+:root {
+	--btn-padding-block: 0.8em;
+	--btn-padding-inline: 1.5em;
+	--btn-min-width: 7.5rem;
+	--btn-font-weight: 600;
+	--btn-border-width: 1px;
+	--btn-border-radius: var(--radius);
+	--btn-background: var(--primary);
+	--btn-background-hover: var(--primary-hover);
+	--btn-text-color: var(--white);
+}
+
+.btn--primary {
+	background-color: var(--btn-background);
+	color: var(--btn-text-color);
+	padding: var(--btn-padding-block) var(--btn-padding-inline);
+	border-radius: var(--btn-border-radius);
+}
+
+.btn--primary:hover {
+	background-color: var(--btn-background-hover);
+}
+
+/* Card Pattern */
+:root {
+	--card-padding: var(--space-m);
+	--card-gap: calc(var(--content-gap) / 2);
+	--card-border-width: var(--border-width);
+	--card-radius: var(--radius);
+	--card-heading-size: var(--h3);
+	--card-text-size: var(--text-s);
+}
+
+.card {
+	padding: var(--card-padding);
+	border-radius: var(--card-radius);
+	display: flex;
+	flex-direction: column;
+	gap: var(--card-gap);
+}
+
+.card--light {
+	--card-background: var(--white);
+	--card-heading-color: var(--text-dark);
+	--card-text-color: var(--text-dark-muted);
+}
+
+.card--dark {
+	--card-background: var(--black);
+	--card-heading-color: var(--text-light);
+	--card-text-color: var(--text-light-muted);
+}
+
+/* Link Pattern */
+:root {
+	--link-color: var(--primary);
+	--link-color-hover: var(--primary-hover);
+	--link-transition: var(--transition);
+}
+
+a {
+	color: var(--link-color);
+	transition: var(--link-transition);
+}
+
+a:hover {
+	color: var(--link-color-hover);
+}
+
+/* Icon Pattern */
+:root {
+	--icon-size: 60px;
+	--icon-padding: 0.35em;
+	--icon-radius: var(--radius);
+	--icon-background: var(--primary-light);
+	--icon-background-hover: var(--primary-ultra-light);
+	--icon-color: var(--primary-dark);
+}
+
+[data-icon] {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--icon-size);
+	height: var(--icon-size);
+	background: var(--icon-background);
+	color: var(--icon-color);
+	border-radius: var(--icon-radius);
+}
+
+```
