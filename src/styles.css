@@ -4,7 +4,7 @@
    ============================================ */
 
 /* ============================================
-   COLOR SYSTEM (from viewport-aware-example.html)
+   COLOR SYSTEM
    ============================================ */
 :root {
 	/* Base Colors */
@@ -16,7 +16,7 @@
 	--bg-dark: #1a1a24;
 	--bg-semi-dark: rgba(0, 0, 0, 0.8);
 	--bg-overlay: rgba(0, 0, 0, 0.6);
-	--bg-glass: rgba(0, 0, 0, 0.5);
+	--bg-glass: rgba(0, 0, 0, 0.3);
 
 	/* Content Block Backgrounds */
 	--bg-block: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
@@ -463,7 +463,7 @@ ol {
 	position: fixed;
 	bottom: var(--space-l);
 	right: var(--space-l);
-	background: var(--bg-semi-dark);
+	background: var(--bg-glass);
 	backdrop-filter: blur(16px);
 	padding: var(--space-m) var(--space-l);
 	border-radius: var(--radius-l);
@@ -514,13 +514,111 @@ ol {
 	box-shadow: var(--box-shadow-m);
 }
 
-#shader-selector label {
-	display: block;
+.shader-selector-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 	margin-bottom: var(--space-xs);
+}
+
+#shader-selector label[for="shader-select"] {
+	display: block;
 	font-size: var(--text-xs);
 	text-transform: uppercase;
 	letter-spacing: 1px;
 	color: var(--text-light-muted);
+	margin-bottom: 0;
+}
+
+.webgl-toggle-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	position: relative;
+}
+
+.webgl-toggle-label {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	cursor: pointer;
+	user-select: none;
+	margin-bottom: 0 !important;
+}
+
+.webgl-toggle-checkbox {
+	display: none;
+}
+
+/* Toggle track wrapper */
+.webgl-toggle-label::before {
+	content: '';
+	display: block;
+	width: 36px;
+	height: 20px;
+	background: var(--white-trans-10);
+	border: 1px solid var(--white-trans-20);
+	border-radius: 10px;
+	transition: all 0.2s ease;
+	position: relative;
+	flex-shrink: 0;
+}
+
+/* Toggle thumb (circle) - positioned inside track */
+.webgl-toggle-label::after {
+	content: '';
+	position: absolute;
+	width: 16px;
+	height: 16px;
+	background: var(--white);
+	border-radius: 50%;
+	transition: all 0.2s ease;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	pointer-events: none;
+	/* Position on left side when unchecked */
+	left: 2px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+/* Checked state - track */
+.webgl-toggle-checkbox:checked+.webgl-toggle-label::before {
+	background: rgba(220, 53, 69, 0.3);
+	border-color: rgba(220, 53, 69, 0.6);
+}
+
+/* Checked state - thumb moves to right side of track */
+.webgl-toggle-checkbox:checked+.webgl-toggle-label::after {
+	left: 18px;
+	background: var(--status-error);
+}
+
+/* Hover state */
+.webgl-toggle-label:hover::before {
+	background: var(--white-trans-15);
+	border-color: var(--white-trans-30);
+}
+
+.webgl-toggle-checkbox:checked+.webgl-toggle-label:hover::before {
+	background: rgba(220, 53, 69, 0.4);
+	border-color: rgba(220, 53, 69, 0.8);
+}
+
+.webgl-toggle-text {
+	font-size: var(--text-xs);
+	text-transform: none;
+	letter-spacing: 0;
+	color: var(--text-light-muted);
+	transition: var(--transition);
+}
+
+.webgl-toggle-label:hover .webgl-toggle-text {
+	color: var(--text-light);
+}
+
+.webgl-toggle-checkbox:checked+.webgl-toggle-label .webgl-toggle-text {
+	color: var(--status-error);
 }
 
 #shader-select {
@@ -540,6 +638,7 @@ ol {
 	border-color: var(--white-trans-30);
 	background: var(--white-trans-15);
 }
+
 
 #shader-select:focus {
 	border-color: var(--accent-blue);
@@ -711,12 +810,51 @@ pre[class*=language-][class*=language-] {
 	backdrop-filter: blur(10px);
 	border: var(--border-medium);
 	animation: slideUp 0.3s ease-out;
-	max-width: 90%;
-	text-align: center;
+	width: 90%;
+	max-width: 390px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
 }
 
-.webgl-notification.hidden {
-	display: none;
+.webgl-notification-content {
+	flex: 1;
+}
+
+.webgl-notification-title {
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.webgl-notification-message {
+	font-size: 13px;
+	opacity: 0.9;
+	line-height: 1.4;
+}
+
+.webgl-notification-close {
+	background: rgba(255, 255, 255, 0.2);
+	border: none;
+	color: white;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 16px;
+	line-height: 1;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.2s ease;
+	flex-shrink: 0;
+	position: absolute;
+	right: 2px;
+	top: 2px;
+}
+
+.webgl-notification-close:hover {
+	background: rgba(255, 255, 255, 0.3);
 }
 
 /* Performance Warning Modal */
@@ -843,23 +981,6 @@ pre[class*=language-][class*=language-] {
 
 @keyframes slideUp {
 	from {
-		transform: translateY(20px);
-		opacity: 0;
-	}
-
-	to {
-		transform: translateY(0);
-		opacity: 1;
-	}
-}
-
-/* For webgl notification specifically */
-.webgl-notification {
-	animation: slideUpCenter 0.3s ease-out;
-}
-
-@keyframes slideUpCenter {
-	from {
 		transform: translateX(-50%) translateY(20px);
 		opacity: 0;
 	}
@@ -869,6 +990,7 @@ pre[class*=language-][class*=language-] {
 		opacity: 1;
 	}
 }
+
 
 /* ============================================
    UTILITY CLASSES

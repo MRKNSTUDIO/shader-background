@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Minimal Shader Background Example</title>
+	<link rel="icon" type="image/x-icon" href="../favicon.ico">
+	<!-- Google Fonts -->
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&display=swap">
+
+	<link rel="stylesheet" href="../src/styles.css">
+	<style>
+		body {
+			display: grid;
+			align-content: center;
+			min-height: 100vh;
+		}
+
+		/* ============================================
+			 FALLBACK BACKGROUND (Optional)
+			 Shown when WebGL is unavailable
+			 ============================================ */
+		.shader-web-background-fallback {
+			background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+			background-attachment: fixed;
+		}
+
+		.content {
+			mix-blend-mode: difference;
+		}
+
+		/* ============================================
+		   WEBGL TOGGLE (Testing Only - Remove in Production)
+		   ============================================ */
+		.webgl-test-toggle {
+			position: fixed;
+			top: 20px;
+			right: 20px;
+			z-index: 10000;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 10px 16px;
+			background: rgba(0, 0, 0, 0.7);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			border-radius: 8px;
+			backdrop-filter: blur(10px);
+			cursor: pointer;
+			user-select: none;
+		}
+
+		.webgl-test-toggle input {
+			display: none;
+		}
+
+		.webgl-test-toggle-switch {
+			position: relative;
+			width: 36px;
+			height: 20px;
+			background: rgba(255, 255, 255, 0.1);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			border-radius: 10px;
+			transition: all 0.2s ease;
+		}
+
+		.webgl-test-toggle-switch::after {
+			content: '';
+			position: absolute;
+			left: 2px;
+			top: 50%;
+			transform: translateY(-50%);
+			width: 16px;
+			height: 16px;
+			background: white;
+			border-radius: 50%;
+			transition: all 0.2s ease;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+		}
+
+		.webgl-test-toggle input:checked~.webgl-test-toggle-switch {
+			background: rgba(220, 53, 69, 0.3);
+			border-color: rgba(220, 53, 69, 0.6);
+		}
+
+		.webgl-test-toggle input:checked~.webgl-test-toggle-switch::after {
+			left: 18px;
+			background: #dc3545;
+		}
+
+		.webgl-test-toggle-label {
+			font-family: system-ui, sans-serif;
+			font-size: 13px;
+			color: white;
+			transition: color 0.2s ease;
+		}
+
+		.webgl-test-toggle input:checked~.webgl-test-toggle-label {
+			color: #dc3545;
+		}
+
+		/* ============================================
+		   ERROR NOTIFICATION (Optional)
+		   ============================================ */
+		.webgl-notification {
+			position: fixed;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			background: rgba(220, 53, 69, 0.95);
+			color: white;
+			padding: 12px 20px;
+			border-radius: 8px;
+			font-family: system-ui, sans-serif;
+			font-size: 14px;
+			z-index: 10001;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 2px solid rgba(255, 255, 255, 0.2);
+			animation: slideUp 0.3s ease-out;
+			width: 90%;
+			max-width: 390px;
+			display: flex;
+			align-items: center;
+			gap: 12px;
+		}
+
+		.webgl-notification.hidden {
+			display: none;
+		}
+
+		.webgl-notification-content {
+			flex: 1;
+		}
+
+		.webgl-notification-title {
+			font-weight: 600;
+			margin-bottom: 4px;
+		}
+
+		.webgl-notification-message {
+			font-size: 13px;
+			opacity: 0.9;
+			line-height: 1.4;
+		}
+
+		.webgl-notification-close {
+			background: rgba(255, 255, 255, 0.2);
+			border: none;
+			color: white;
+			width: 24px;
+			height: 24px;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 16px;
+			line-height: 1;
+			padding: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: background 0.2s ease;
+			flex-shrink: 0;
+			position: absolute;
+			right: 2px;
+			top: 2px;
+		}
+
+		.webgl-notification-close:hover {
+			background: rgba(255, 255, 255, 0.3);
+		}
+
+		@keyframes slideUp {
+			from {
+				transform: translateX(-50%) translateY(20px);
+				opacity: 0;
+			}
+
+			to {
+				transform: translateX(-50%) translateY(0);
+				opacity: 1;
+			}
+		}
+	</style>
+
+	<!-- Buffer pass: processes feedback and draws the blob -->
+	<script type="x-shader/x-fragment" id="blob-buffer">
+		precision highp float;
+
+		uniform vec2 iResolution;
+		uniform float iMinDimension;
+		uniform sampler2D iChannel0;
+		uniform float iFeedbackFadeRate;
+		uniform vec2 iBlobCenter;
+		uniform float iBlobRadius;
+		uniform vec3 iBlobColor;
+		uniform float iBlobIntensity;
+
+		void main() {
+			vec2 uv = gl_FragCoord.xy / iResolution;
+			vec2 st = (gl_FragCoord.xy * 2.0 - iResolution) / iMinDimension;
+
+			vec3 previousColor = texture2D(iChannel0, uv).rgb;
+			previousColor *= iFeedbackFadeRate;
+
+			float dist = distance(iBlobCenter, st);
+			float blob = smoothstep(iBlobRadius, iBlobRadius * 0.7, dist);
+			blob = pow(blob, 15.0);
+
+			vec3 drawColor = iBlobColor * blob * iBlobIntensity;
+
+			vec3 color = clamp(previousColor + drawColor, 0.0, 1.0);
+			gl_FragColor = vec4(color, 1.0);
+		}
+	</script>
+
+	<!-- Image pass: outputs the buffer to screen -->
+	<script type="x-shader/x-fragment" id="blob-image">
+		precision highp float;
+
+		uniform vec2 iResolution;
+		uniform sampler2D iChannel0;
+
+		void main() {
+			gl_FragColor = texture2D(iChannel0, gl_FragCoord.xy / iResolution);
+		}
+	</script>
+</head>
+
+<body>
+	<!-- ============================================
+	     TESTING TOGGLE (Remove in Production)
+	     ============================================ -->
+	<label class="webgl-test-toggle" title="Simulate WebGL being unavailable to preview the fallback">
+		<input type="checkbox" id="webgl-test-toggle">
+		<span class="webgl-test-toggle-switch"></span>
+		<span class="webgl-test-toggle-label">Disable WebGL / Fallback</span>
+	</label>
+
+	<!-- Page content -->
+	<main class="content">
+		<h1>Interactive Blob Background</h1>
+		<p>Move your mouse or touch and drag to control the blob.</p>
+		<p>This is a minimal example showing only what's needed for shader integration.</p>
+	</main>
+
+
+	<!-- Shader library by xemantic (must load before shader initialization script) -->
+	<script src="../src/shader-web-background.min.js"></script>
+
+	<!-- Shader code -->
+	<script>
+		(function () {
+
+			// ============================================
+			// CONFIGURATION
+			// ============================================
+			const CONFIG = {
+				// Show error notification when WebGL fails? (set to false to fail silently)
+				showErrorNotification: true,
+
+				// Error notification settings
+				errorNotification: {
+					title: '⚠️ WebGL unavailable',
+					message: 'Your browser or device cannot display these graphics (WebGL required). Please try a different browser or device.',
+					dismissible: true // Show close button?
+				}
+			};
+
+			// ============================================
+			// SHADER STATE
+			// ============================================
+			var minDimension = Math.min(window.innerWidth, window.innerHeight);
+			var mouseX = window.innerWidth / 2;
+			var mouseY = window.innerHeight / 2;
+			var shaderMouseX = 0;
+			var shaderMouseY = 0;
+
+			// Blob parameters
+			var blobCenterX = 0;
+			var blobCenterY = 0;
+			var blobColor = [1, 0.5, 0.8];
+			var blobRadius = 0.25;
+			var blobIntensity = 0.6;
+			var feedbackFadeRate = 0.98;
+			var colorShiftSpeed = 0.1;
+
+			// Mouse and touch tracking
+			document.addEventListener('mousemove', function (e) {
+				mouseX = e.clientX;
+				mouseY = e.clientY;
+			});
+
+			document.addEventListener('touchmove', function (e) {
+				if (e.touches.length > 0) {
+					mouseX = e.touches[0].clientX;
+					mouseY = e.touches[0].clientY;
+				}
+			}, { passive: true });
+
+			// ============================================
+			// ERROR HANDLING (Optional)
+			// ============================================
+
+			/**
+			 * Create WebGL error notification
+			 * Optional: Remove this function if you don't want error messages.
+			 *           Also remove the function call `createWebGLNotification();` in the onError callback.
+			 */
+			function createWebGLNotification() {
+				if (!CONFIG.showErrorNotification) return;
+
+				// Check if notification already exists
+				if (document.getElementById('webgl-notification')) {
+					return;
+				}
+
+				const notification = document.createElement('div');
+				notification.id = 'webgl-notification';
+				notification.className = 'webgl-notification';
+
+				const content = document.createElement('div');
+				content.className = 'webgl-notification-content';
+
+				const title = document.createElement('div');
+				title.className = 'webgl-notification-title';
+				title.textContent = CONFIG.errorNotification.title;
+
+				const message = document.createElement('div');
+				message.className = 'webgl-notification-message';
+				message.textContent = CONFIG.errorNotification.message;
+
+				content.appendChild(title);
+				content.appendChild(message);
+				notification.appendChild(content);
+
+				if (CONFIG.errorNotification.dismissible) {
+					const closeBtn = document.createElement('button');
+					closeBtn.className = 'webgl-notification-close';
+					closeBtn.innerHTML = '×';
+					closeBtn.setAttribute('aria-label', 'Close notification');
+					closeBtn.addEventListener('click', function () {
+						notification.classList.add('hidden');
+						setTimeout(function () {
+							notification.remove();
+						}, 300);
+					});
+					notification.appendChild(closeBtn);
+				}
+
+				document.body.appendChild(notification);
+			}
+
+			// ============================================
+			// SHADER INITIALIZATION
+			// ============================================
+			const shaderConfig = {
+				onInit: function (ctx) {
+					mouseX = ctx.cssWidth / 2;
+					mouseY = ctx.cssHeight / 2;
+				},
+				onResize: function (width, height) {
+					minDimension = Math.min(width, height);
+				},
+				onBeforeFrame: function (ctx) {
+					var time = performance.now() / 1000;
+
+					// Convert mouse to shader coordinates
+					shaderMouseX = ctx.toShaderX(mouseX);
+					shaderMouseY = ctx.toShaderY(mouseY);
+
+					// Normalized coordinates
+					var stMouseX = (2 * shaderMouseX - ctx.width) / minDimension;
+					var stMouseY = (2 * shaderMouseY - ctx.height) / minDimension;
+
+					var targetX = stMouseX;
+					var targetY = stMouseY;
+
+					// Smooth blob movement
+					blobCenterX += (targetX - blobCenterX) * 0.15;
+					blobCenterY += (targetY - blobCenterY) * 0.15;
+
+					// Color shifts based on position and time
+					var distance = Math.sqrt(blobCenterX * blobCenterX + blobCenterY * blobCenterY);
+					var hue = (time * colorShiftSpeed + distance * 0.5) % 1.0;
+					blobColor[0] = 0.5 + 0.5 * Math.sin(hue * Math.PI * 2);
+					blobColor[1] = 0.5 + 0.5 * Math.sin((hue + 0.33) * Math.PI * 2);
+					blobColor[2] = 0.5 + 0.5 * Math.sin((hue + 0.66) * Math.PI * 2);
+				},
+				onError: function (error, canvas) {
+					// Add fallback class to body for CSS fallback background
+					document.body.classList.add('shader-web-background-fallback');
+					// Show error notification
+					createWebGLNotification();
+					console.error('Shader initialization failed:', error);
+				},
+				shaders: {
+					'blob-buffer': {
+						uniforms: {
+							iResolution: function (gl, loc, ctx) { gl.uniform2f(loc, ctx.width, ctx.height); },
+							iMinDimension: function (gl, loc) { gl.uniform1f(loc, minDimension); },
+							iFeedbackFadeRate: function (gl, loc) { gl.uniform1f(loc, feedbackFadeRate); },
+							iBlobCenter: function (gl, loc) { gl.uniform2f(loc, blobCenterX, blobCenterY); },
+							iBlobRadius: function (gl, loc) { gl.uniform1f(loc, blobRadius); },
+							iBlobColor: function (gl, loc) { gl.uniform3f(loc, blobColor[0], blobColor[1], blobColor[2]); },
+							iBlobIntensity: function (gl, loc) { gl.uniform1f(loc, blobIntensity); },
+							iChannel0: function (gl, loc, ctx) { ctx.texture(loc, ctx.buffers['blob-buffer']); }
+						}
+					},
+					'blob-image': {
+						uniforms: {
+							iResolution: function (gl, loc, ctx) { gl.uniform2f(loc, ctx.width, ctx.height); },
+							iChannel0: function (gl, loc, ctx) { ctx.texture(loc, ctx.buffers['blob-buffer']); }
+						}
+					}
+				}
+			};
+
+			/* ========== TESTING CODE START (Remove this entire block in production) ========== */
+			// For testing: Check if WebGL error simulation is enabled via toggle
+			function isWebGLErrorSimulated() {
+				return sessionStorage.getItem('webgl-disabled') === 'true';
+			}
+
+			function toggleWebGLTest() {
+				const isSimulated = isWebGLErrorSimulated();
+				sessionStorage.setItem('webgl-disabled', (!isSimulated).toString());
+				location.reload();
+			}
+
+			const testToggle = document.getElementById('webgl-test-toggle');
+			if (testToggle) {
+				testToggle.checked = isWebGLErrorSimulated();
+				testToggle.addEventListener('change', toggleWebGLTest);
+			}
+
+			// ============================================
+
+			// Initialize shader - uses real error path for both simulated and real failures
+			try {
+				if (isWebGLErrorSimulated()) {
+					// Trigger real library error by referencing non-existent shader
+					// This exercises the actual onError callback
+					shaderWebBackground.shade({
+						onError: shaderConfig.onError,
+						shaders: {
+							'non-existent-shader-id': { uniforms: {} }
+						}
+					});
+				} else {
+					// Normal initialization
+					shaderWebBackground.shade(shaderConfig);
+				}
+			} catch (e) {
+				// Safety net for unexpected thrown errors
+				document.body.classList.add('shader-web-background-fallback');
+				createWebGLNotification();
+				console.error('Shader initialization failed:', e);
+			}
+			/* ========== TESTING CODE END ========== */
+
+			/* ========== PRODUCTION CODE (Uncomment after removing testing code above) ==========
+			shaderWebBackground.shade(shaderConfig);
+			========== */
+		})();
+	</script>
+
+</body>
+
+</html>

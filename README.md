@@ -10,8 +10,9 @@ A complete development environment for creating stunning WebGL shader background
 
 <p align="center">
   <a href="https://mrknstudio.github.io/shader-background/">Live Demo</a> •
-  <a href="https://mrknstudio.github.io/shader-background/minimal-example.html">Minimal Example</a> •
-  <a href="https://mrknstudio.github.io/shader-background/viewport-aware-example.html">Viewport-Aware Example</a>
+  <a href="https://mrknstudio.github.io/shader-background/examples/minimal-example.html">Minimal Example</a> •
+  <a href="https://mrknstudio.github.io/shader-background/examples/viewport-aware-example.html">Viewport-Aware Example</a> •
+  <a href="https://mrknstudio.github.io/shader-background/examples/card-borders-experiment.html">Shader Borders</a>
 </p>
 
 ---
@@ -26,6 +27,7 @@ Converting [Shadertoy](https://shadertoy.com) shaders to production websites is 
 | **Shader Registry** | Clean JavaScript API for registering and switching between multiple shaders |
 | **Working Examples** | From simple gradients to complex multi-pass feedback loops |
 | **Interaction Handling** | Mouse, scroll parallax, and device orientation support |
+| **Error Handling** | Built-in `onError` callback for graceful fallbacks when WebGL is unavailable |
 
 ---
 
@@ -37,11 +39,15 @@ Explore all shader examples with a dropdown selector:
 
 ### Minimal Integration Example
 Clean, self-contained example with the Interactive Blob effect:
-**[https://mrknstudio.github.io/shader-background/minimal-example.html](https://mrknstudio.github.io/shader-background/minimal-example.html)**
+**[https://mrknstudio.github.io/shader-background/examples/minimal-example.html](https://mrknstudio.github.io/shader-background/examples/minimal-example.html)**
 
 ### Viewport-Aware Multi-Canvas Example
 Performance-optimized example with multiple canvases that pause rendering when not visible:
-**[https://mrknstudio.github.io/shader-background/viewport-aware-example.html](https://mrknstudio.github.io/shader-background/viewport-aware-example.html)**
+**[https://mrknstudio.github.io/shader-background/examples/viewport-aware-example.html](https://mrknstudio.github.io/shader-background/examples/viewport-aware-example.html)**
+
+### Shader Borders Example
+Multi-canvas showcase with animated shader borders on cards:
+**[https://mrknstudio.github.io/shader-background/examples/card-borders-experiment.html](https://mrknstudio.github.io/shader-background/examples/card-borders-experiment.html)**
 
 ---
 
@@ -94,9 +100,11 @@ npx serve .
 │   └── shadertoy-example-*.js                  ← Converted Shadertoy shaders
 ├── shadertoy/
 │   └── shadertoy-example-*.txt                 ← Original Shadertoy source code
+├── examples/
+│   ├── minimal-example.html                    ← Minimal integration example
+│   ├── viewport-aware-example.html             ← Performance-optimized example
+│   └── card-borders-experiment.html            ← Shader borders on cards
 ├── index.html                                  ← Main demo (shader source + UI)
-├── minimal-example.html                        ← Minimal integration example
-├── viewport-aware-example.html                 ← Performance-optimized example
 ├── README.md                                   ← Project documentation
 └── favicon.ico                                 ← Site icon
 ```
@@ -155,6 +163,10 @@ Just paste Shadertoy code and ask:
 
 ```javascript
 ShaderRegistry.register('my-shader', {
+  onError: function (error, canvas) {
+    // Optional: Handle errors (e.g., WebGL not supported)
+    console.error('Shader failed:', error);
+  },
   shaders: {
     'my-shader-image': {
       uniforms: {
@@ -206,7 +218,7 @@ The library handles double-buffering automatically—you read from the previous 
 
 ## 🎯 Viewport-Aware Rendering (Multiple Canvases)
 
-For pages with multiple shader canvases, you can optimize performance by pausing rendering when canvases are not visible. The `viewport-aware-example.html` demonstrates this pattern.
+For pages with multiple shader canvases, you can optimize performance by pausing rendering when canvases are not visible. The `examples/viewport-aware-example.html` demonstrates this pattern.
 
 ### Key Features
 
@@ -289,6 +301,7 @@ const ctx = shaderWebBackground.shade({
 | **Demo Shader** | Advanced multi-input: mouse, scroll parallax, device orientation |
 | **Shadertoy Examples 1-3** | Real-world Shadertoy ports demonstrating conversion techniques |
 | **Viewport-Aware Example** | Multiple canvases with IntersectionObserver-based pause/resume |
+| **Shader Borders** | Multi-canvas showcase with animated shader borders on cards |
 
 ---
 

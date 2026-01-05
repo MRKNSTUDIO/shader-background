@@ -137,6 +137,14 @@ const ShaderRegistry = {
 	},
 
 	/**
+	 * Check if WebGL is disabled (session-only, persists in current tab)
+	 * @returns {boolean} True if WebGL is disabled
+	 */
+	isWebGLDisabled: function () {
+		return sessionStorage.getItem('webgl-disabled') === 'true';
+	},
+
+	/**
 	 * Internal method to actually start the shader
 	 * @param {string} id - Shader identifier
 	 * @private
@@ -173,15 +181,38 @@ const ShaderRegistry = {
 			};
 		}
 
+		// Wrap onError callback to create notification and call original if present
+		const originalOnError = wrappedConfig.onError;
+		wrappedConfig.onError = function (error, canvas) {
+			// Add fallback class to body for CSS fallback background
+			document.body.classList.add('shader-web-background-fallback');
+			// Create notification element only when shader cannot be displayed
+			createWebGLNotification();
+			console.error('Shader initialization failed:', error);
+			registry.updateInfo('Error: ' + error.message);
+			// Call original onError if it exists
+			if (originalOnError) {
+				originalOnError(error, canvas);
+			}
+		};
+
+		// Check if WebGL is disabled - if so, simulate an error
+		if (this.isWebGLDisabled()) {
+			const mockError = new Error('WebGL support disabled for testing');
+			mockError.name = 'shaderWebBackground.GlError';
+			wrappedConfig.onError(mockError, null);
+			return;
+		}
+
 		try {
 			this.currentContext = shaderWebBackground.shade(wrappedConfig);
 			this.updateInfo(shaderDef.description);
-			// Hide notification if shader started successfully
-			hideWebGLNotification();
 		} catch (error) {
+			// Add fallback class to body for CSS fallback background
+			document.body.classList.add('shader-web-background-fallback');
+			createWebGLNotification();
 			console.error('Failed to start shader:', error);
 			this.updateInfo('Error: ' + error.message);
-			showWebGLNotification();
 		}
 	},
 
@@ -219,42 +250,51 @@ const ShaderRegistry = {
 	}
 };
 
-// WebGL support check (cached)
-let webglSupported = null;
+// Create WebGL unsupported notification element
+function createWebGLNotification() {
+	// Check if notification already exists
+	if (document.getElementById('webgl-notification')) {
+		return;
+	}
+	const notification = document.createElement('div');
+	notification.id = 'webgl-notification';
+	notification.className = 'webgl-notification';
+	notification.innerHTML = `
+		<div class="webgl-notification-content">
+			<div class="webgl-notification-title">⚠️ WebGL unavailable</div>
+			<div class="webgl-notification-message">Your browser or device cannot display these graphics (WebGL required). Please try a different browser or device.</div>
+		</div>
+		<button class="webgl-notification-close" aria-label="Close notification">×</button>
+	`;
+	document.body.appendChild(notification);
 
-// Show WebGL unsupported notification
-function showWebGLNotification() {
-	const notification = document.getElementById('webgl-notification');
-	if (notification) {
-		notification.classList.remove('hidden');
+	// Add close button functionality
+	const closeBtn = notification.querySelector('.webgl-notification-close');
+	if (closeBtn) {
+		closeBtn.addEventListener('click', function () {
+			notification.remove();
+		});
 	}
 }
 
-// Hide WebGL unsupported notification
-function hideWebGLNotification() {
-	const notification = document.getElementById('webgl-notification');
-	if (notification) {
-		notification.classList.add('hidden');
-	}
+/**
+ * Toggle WebGL support (session-only, persists in current tab)
+ */
+function toggleWebGL() {
+	const isDisabled = ShaderRegistry.isWebGLDisabled();
+	sessionStorage.setItem('webgl-disabled', (!isDisabled).toString());
+	// Reload page to reinitialize shader
+	location.reload();
 }
 
-// Check WebGL support (cached)
-function checkWebGLSupport() {
-	if (webglSupported !== null) {
-		return webglSupported;
-	}
-	try {
-		const canvas = document.createElement('canvas');
-		const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-		webglSupported = !!gl;
-		if (!webglSupported) {
-			showWebGLNotification();
-		}
-		return webglSupported;
-	} catch (e) {
-		webglSupported = false;
-		showWebGLNotification();
-		return false;
+/**
+ * Update WebGL toggle checkbox state
+ */
+function updateWebGLToggleCheckbox() {
+	const toggleCheckbox = document.getElementById('webgl-toggle');
+	if (toggleCheckbox) {
+		const isDisabled = ShaderRegistry.isWebGLDisabled();
+		toggleCheckbox.checked = isDisabled;
 	}
 }
 
@@ -263,20 +303,20 @@ function checkWebGLSupport() {
  */
 function initShaderEnvironment() {
 	const selector = document.getElementById('shader-select');
-	const isSupported = checkWebGLSupport();
 
 	selector.addEventListener('change', function () {
-		if (isSupported) {
-			ShaderRegistry.start(this.value);
-		} else {
-			showWebGLNotification();
-		}
+		ShaderRegistry.start(this.value);
 	});
 
-	// Start with the first shader if WebGL is supported
-	if (isSupported) {
-		ShaderRegistry.start(selector.value);
+	// Set up WebGL toggle checkbox
+	const toggleCheckbox = document.getElementById('webgl-toggle');
+	if (toggleCheckbox) {
+		toggleCheckbox.addEventListener('change', toggleWebGL);
+		updateWebGLToggleCheckbox();
 	}
+
+	// Start with the first shader (library will handle errors via onError)
+	ShaderRegistry.start(selector.value);
 }
 
 // Initialize after all scripts are loaded (window.load waits for all resources)

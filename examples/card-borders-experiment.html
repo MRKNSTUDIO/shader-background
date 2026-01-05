@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Shader Borders</title>
+	<link rel="icon" type="image/x-icon" href="../favicon.ico">
+	<!-- Google Fonts -->
+	<link rel="stylesheet"
+		href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Roboto:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+	<!-- Shared styles -->
+	<link rel="stylesheet" href="../src/styles.css">
+
+	<!-- Prism.js for code highlighting -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism-tomorrow.min.css">
+
+	<style>
+		body {
+			background: var(--bg-ultra-dark);
+			margin: 0;
+			padding: 0;
+		}
+
+		/* Content layer */
+		.content-layer {
+			position: relative;
+			z-index: 2;
+			padding: var(--space-xl);
+		}
+
+		/* Card styling */
+		.card {
+			background: rgba(255, 255, 255, 0.05);
+			backdrop-filter: blur(10px);
+			padding: var(--space-xl);
+			margin-bottom: var(--space-xl);
+			position: relative;
+			overflow: hidden;
+			will-change: transform;
+			transform: translate3d(0, 0, 0);
+			backface-visibility: hidden;
+		}
+
+		/* Canvas positioned to cover entire card */
+		.card-border-canvas {
+			/* display: none; */
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			z-index: -1;
+			pointer-events: none;
+		}
+
+		/* Clip canvas */
+		.card-border-canvas {
+			--offset: 2px;
+			clip-path: polygon(0% 0%, 0% 100%, var(--offset) 100%, var(--offset) var(--offset), calc(100% - var(--offset)) var(--offset), calc(100% - var(--offset)) calc(100% - var(--offset)), 0% calc(100% - var(--offset)), 0% 100%, 100% 100%, 100% 0%);
+		}
+
+		/* Card content above canvas */
+		.card-content {
+			position: relative;
+			z-index: 2;
+		}
+
+		.card h2 {
+			margin-top: 0;
+			color: var(--text-heading);
+			font-family: var(--heading-font-family);
+			font-size: var(--h2);
+		}
+
+		.card p {
+			color: var(--text-light);
+			font-family: var(--text-font-family);
+			font-size: var(--text-m);
+			line-height: var(--text-line-height);
+		}
+
+		/* Hero section */
+		.hero {
+			text-align: center;
+			padding: var(--space-xxl) var(--space-xl);
+			margin-bottom: var(--space-xxl);
+		}
+
+		.hero h1 {
+			color: var(--text-heading);
+			font-family: var(--heading-font-family);
+			font-size: var(--h1);
+			margin-bottom: var(--space-m);
+		}
+
+		.hero p {
+			color: var(--text-light-muted);
+			font-family: var(--text-font-family);
+			font-size: var(--text-l);
+			max-width: 800px;
+			margin: 0 auto;
+		}
+
+		/* Stats overlay */
+		.stats {
+			position: fixed;
+			bottom: 20px;
+			right: 20px;
+			background: rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 1px solid var(--white-trans-20);
+			border-radius: 12px;
+			padding: var(--space-m);
+			z-index: 1000;
+			font-family: var(--code-font-family);
+			font-size: var(--text-xs);
+			color: var(--text-light);
+			min-width: 200px;
+		}
+
+		.stats-title {
+			font-weight: 600;
+			margin-bottom: var(--space-s);
+			color: var(--text-heading);
+		}
+
+		.stats-row {
+			display: flex;
+			justify-content: space-between;
+			margin-bottom: var(--space-xs);
+		}
+
+		.stats-value {
+			color: var(--status-success);
+		}
+
+		.stats-value.paused {
+			color: var(--text-light-muted);
+		}
+
+		/* Status indicator */
+		.status-indicator {
+			display: inline-block;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--text-light-muted);
+			margin-right: var(--space-xs);
+		}
+
+		.status-indicator.active {
+			background: var(--status-success);
+			box-shadow: 0 0 8px var(--status-success);
+		}
+
+		/* Comparison info */
+		.comparison-info {
+			background: rgba(255, 255, 255, 0.03);
+			border-left: 3px solid var(--accent-purple);
+			padding: var(--space-m);
+			margin: var(--space-l) 0;
+			border-radius: 8px;
+		}
+
+		.comparison-info h3 {
+			color: var(--accent-purple);
+			margin-top: 0;
+			font-family: var(--heading-font-family);
+			font-size: var(--h3);
+		}
+
+		.comparison-info code {
+			background: var(--bg-code);
+			padding: 2px 6px;
+			border-radius: 4px;
+			font-family: var(--code-font-family);
+			font-size: 0.9em;
+		}
+	</style>
+
+	<!-- Shader that renders gradient only at card borders -->
+	<script type="x-shader/x-fragment" id="border-shader">
+		precision highp float;
+
+		uniform float iTime;
+		uniform vec2 iResolution;
+		uniform float iBorderWidth; // Border width in pixels
+		uniform float iPhase; // Phase offset for animation
+
+		void main() {
+			vec2 uv = gl_FragCoord.xy / iResolution;
+			vec2 pixel = gl_FragCoord.xy;
+
+			// Card dimensions in pixels (canvas covers entire card)
+			float cardWidth = iResolution.x;
+			float cardHeight = iResolution.y;
+
+			// Calculate distance to each edge
+			float distToLeft = pixel.x;
+			float distToRight = cardWidth - pixel.x;
+			float distToTop = pixel.y;
+			float distToBottom = cardHeight - pixel.y;
+
+			// Check if we're in the border region
+			bool onLeftBorder = distToLeft >= 0.0 && distToLeft <= iBorderWidth;
+			bool onRightBorder = distToRight >= 0.0 && distToRight <= iBorderWidth;
+			bool onTopBorder = distToTop >= 0.0 && distToTop <= iBorderWidth;
+			bool onBottomBorder = distToBottom >= 0.0 && distToBottom <= iBorderWidth;
+
+			// Check if we're inside the card (not on border)
+			bool inCardArea = distToLeft > iBorderWidth && distToRight > iBorderWidth &&
+							  distToTop > iBorderWidth && distToBottom > iBorderWidth;
+
+			// Only render gradient on border pixels
+			if (!inCardArea && (onLeftBorder || onRightBorder || onTopBorder || onBottomBorder)) {
+				// Animated gradient color
+				float t = iTime * 0.5 + iPhase;
+				vec3 gradientColor = 0.5 + 0.5 * cos(t + uv.xyx * 3.0 + vec3(0, 2, 4));
+
+				// Calculate border intensity (fade at edges for smoothness)
+				float minDist = min(min(distToLeft, distToRight), min(distToTop, distToBottom));
+				float borderAlpha = smoothstep(iBorderWidth * 1.5, iBorderWidth * 0.5, minDist);
+				borderAlpha = clamp(borderAlpha, 0.0, 1.0);
+
+				gl_FragColor = vec4(gradientColor, borderAlpha);
+			} else {
+				// Transparent - card content shows through
+				gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+			}
+		}
+	</script>
+</head>
+
+<body>
+	<!-- Content layer -->
+	<div class="content-layer">
+		<div class="hero">
+			<h1>Shader Borders</h1>
+			<p>
+				Embedding WebGL into everyday UI. Each card owns a tiny canvas that draws <strong>only the border</strong>,
+				animates independently, and <strong>pauses when off-screen</strong>—so the effect scales without burning the
+				GPU.
+			</p>
+		</div>
+
+		<!-- Card 1 -->
+		<div class="card" data-card-id="0">
+			<canvas class="card-border-canvas" data-canvas-id="0"></canvas>
+			<div class="card-content">
+				<h2>Pixel-Space Border Detection</h2>
+				<p>
+					The shader computes distance to each edge in pixels. If a fragment falls within the border width, it renders
+					a cosine-based gradient; otherwise it outputs transparent black.
+				</p>
+				<pre><code class="language-glsl">// Distance to each edge in pixels
+float distToLeft   = pixel.x;
+float distToRight  = cardWidth - pixel.x;
+float distToTop    = pixel.y;
+float distToBottom = cardHeight - pixel.y;
+
+// Only render if inside the border band
+bool inCardArea = distToLeft > iBorderWidth &amp;&amp; ...;
+if (!inCardArea) {
+  gl_FragColor = vec4(gradientColor, borderAlpha);
+} else {
+  gl_FragColor = vec4(0.0); // transparent
+}</code></pre>
+				<p>
+					<strong>Takeaway:</strong> Work in pixel coordinates—canvas size equals card size, so no UV math needed.
+				</p>
+			</div>
+		</div>
+
+		<!-- Card 2 -->
+		<div class="card" data-card-id="1">
+			<canvas class="card-border-canvas" data-canvas-id="1"></canvas>
+			<div class="card-content">
+				<h2>Viewport-Aware Rendering</h2>
+				<p>
+					An <code>IntersectionObserver</code> flips <code>state.visible</code> when the card enters/exits the viewport.
+					The render loop checks this flag and skips work when false.
+				</p>
+				<pre><code class="language-javascript">const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    state.visible = entry.isIntersecting;
+  });
+}, { threshold: 0.01, rootMargin: '50px' });
+
+// In onBeforeFrame callback
+if (!state.visible) return; // skip draw</code></pre>
+				<p>
+					<strong>Try it:</strong> Scroll this card off-screen and watch the stats panel—this card pauses while others
+					keep running.
+				</p>
+			</div>
+		</div>
+
+		<!-- Card 3 -->
+		<div class="card" data-card-id="2">
+			<canvas class="card-border-canvas" data-canvas-id="2"></canvas>
+			<div class="card-content">
+				<h2>Uniforms as Runtime Knobs</h2>
+				<p>
+					Uniforms let you tweak shader parameters every frame without recompiling. Here we push <code>iTime</code>,
+					<code>iResolution</code>, <code>iBorderWidth</code>, and a per-card <code>iPhase</code>.
+				</p>
+				<pre><code class="language-javascript">uniforms: {
+  iTime:       (gl, loc) => gl.uniform1f(loc, performance.now() / 1000),
+  iResolution: (gl, loc, ctx) => gl.uniform2f(loc, ctx.width, ctx.height),
+  iBorderWidth:(gl, loc) => gl.uniform1f(loc, 3.0),
+  iPhase:      (gl, loc) => gl.uniform1f(loc, phaseOffset)
+}</code></pre>
+				<p>
+					<strong>Takeaway:</strong> Expose any magic number as a uniform—makes A/B testing trivial.
+				</p>
+			</div>
+		</div>
+
+		<!-- Card 4 -->
+		<div class="card" data-card-id="3">
+			<canvas class="card-border-canvas" data-canvas-id="3"></canvas>
+			<div class="card-content">
+				<h2>Phase Offsets for Variety</h2>
+				<p>
+					Instead of random timing, each card gets a deterministic phase offset (0°, 60°, 120°…). The shader adds
+					this to <code>iTime</code> when computing the gradient, so all cards share the same animation but look
+					different.
+				</p>
+				<pre><code class="language-javascript">// JS: precomputed phase per card
+const phaseOffsets = [
+  0, Math.PI*2/6, Math.PI*4/6, Math.PI*6/6, ...
+];
+
+// GLSL: shift the color cycle
+float t = iTime * 0.5 + iPhase;
+vec3 col = 0.5 + 0.5 * cos(t + uv.xyx * 3.0 + vec3(0,2,4));</code></pre>
+				<p>
+					<strong>Takeaway:</strong> Deterministic offsets keep animations synced yet visually distinct.
+				</p>
+			</div>
+		</div>
+
+		<!-- Card 5 -->
+		<div class="card" data-card-id="4">
+			<canvas class="card-border-canvas" data-canvas-id="4"></canvas>
+			<div class="card-content">
+				<h2>One Canvas Per Card</h2>
+				<p>
+					Each card contains its own <code>&lt;canvas&gt;</code> and WebGL context. This gives you independent
+					lifecycles,
+					automatic CSS-matched sizing, and simple cleanup on unmount.
+				</p>
+				<pre><code class="language-javascript">shaderWebBackground.shade({
+  canvas: document.querySelector('[data-canvas-id="0"]'),
+  shaders: {
+    'border-shader': { uniforms: { ... } }
+  }
+});</code></pre>
+				<p>
+					<strong>Trade-off:</strong> More contexts = more memory, but each is tiny (border-only draw) and pauses
+					when off-screen, so practical overhead stays low.
+				</p>
+			</div>
+		</div>
+
+		<!-- Card 6 -->
+		<div class="card" data-card-id="5">
+			<canvas class="card-border-canvas" data-canvas-id="5"></canvas>
+			<div class="card-content">
+				<h2>CSS Clip-Path Mask</h2>
+				<p>
+					The canvas covers the entire card but a <code>clip-path</code> carves out the interior, leaving only a
+					frame. The card's glass background shows through the hole, content sits on top.
+				</p>
+				<pre><code class="language-css">.card-border-canvas {
+  --offset: 2px;
+  clip-path: polygon(
+    0% 0%, 0% 100%,
+    var(--offset) 100%, var(--offset) var(--offset),
+    calc(100% - var(--offset)) var(--offset),
+    calc(100% - var(--offset)) calc(100% - var(--offset)),
+    0% calc(100% - var(--offset)), 0% 100%,
+    100% 100%, 100% 0%
+  );
+}</code></pre>
+				<p>
+					<strong>Note:</strong> This is experimental—complex polygons can have browser quirks. Alternatives include
+					shader-based masking or CSS <code>mask-image</code>.
+				</p>
+			</div>
+		</div>
+
+		<!-- Spacer for scrolling -->
+		<div style="height: 100vh;"></div>
+	</div>
+
+	<!-- Stats overlay -->
+	<div class="stats">
+		<div class="stats-title">Shader Stats</div>
+		<div class="stats-row">
+			<span>Active Shaders:</span>
+			<span class="stats-value" id="stats-total">0</span>
+		</div>
+		<div id="card-stats"></div>
+	</div>
+
+	<!-- Shader library -->
+	<script src="../src/shader-web-background.min.js"></script>
+
+	<script>
+		(function () {
+			'use strict';
+
+			// Track card states
+			const cardStates = [];
+			const shaderInstances = [];
+			const borderWidth = 3.0; // pixels
+
+			// Phase offsets for visual variety
+			const phaseOffsets = [
+				0,
+				Math.PI * 2 / 6,      // 60°
+				Math.PI * 4 / 6,      // 120°
+				Math.PI * 6 / 6,      // 180°
+				Math.PI * 8 / 6,      // 240°
+				Math.PI * 10 / 6      // 300°
+			];
+
+			// Get all card elements
+			const cardElements = document.querySelectorAll('.card[data-card-id]');
+			const canvasElements = document.querySelectorAll('.card-border-canvas[data-canvas-id]');
+
+			// Initialize card states
+			cardElements.forEach((cardEl, index) => {
+				const cardId = parseInt(cardEl.dataset.cardId);
+				cardStates[cardId] = {
+					element: cardEl,
+					visible: false,
+					frameCount: 0
+				};
+			});
+
+			// Update stats display
+			function updateStats() {
+				const totalActive = cardStates.filter(s => s && s.visible).length;
+				document.getElementById('stats-total').textContent = totalActive;
+
+				// Update individual card stats
+				const cardStatsEl = document.getElementById('card-stats');
+				cardStatsEl.innerHTML = '';
+				cardStates.forEach((state, index) => {
+					if (!state) return;
+					const row = document.createElement('div');
+					row.className = 'stats-row';
+					const indicator = state.visible ? '<span class="status-indicator active"></span>' : '<span class="status-indicator"></span>';
+					row.innerHTML = `<span>${indicator} Card ${index + 1}:</span><span class="stats-value ${state.visible ? '' : 'paused'}">${state.visible ? 'Active' : 'Paused'}</span>`;
+					cardStatsEl.appendChild(row);
+				});
+			}
+
+			/**
+			 * Create a viewport-aware shader instance for an element
+			 * @param {number} cardId - Element ID
+			 */
+			function createCardShader(cardId) {
+				const canvas = document.querySelector(`.card-border-canvas[data-canvas-id="${cardId}"]`);
+				const cardEl = document.querySelector(`.card[data-card-id="${cardId}"]`);
+				if (!canvas || !cardEl) return null;
+
+				const state = cardStates[cardId];
+				const phaseOffset = phaseOffsets[cardId] || 0;
+
+				// Create IntersectionObserver for this card
+				const observer = new IntersectionObserver((entries) => {
+					entries.forEach(entry => {
+						state.visible = entry.isIntersecting && entry.intersectionRatio > 0;
+						updateStats();
+					});
+				}, {
+					threshold: 0.01,
+					rootMargin: '50px' // Start rendering slightly before visible
+				});
+
+				observer.observe(cardEl);
+
+				// Also pause when tab is hidden
+				document.addEventListener('visibilitychange', () => {
+					if (document.hidden) {
+						state.visible = false;
+						updateStats();
+					} else {
+						// Recalculate visibility
+						const rect = cardEl.getBoundingClientRect();
+						state.visible = rect.top < window.innerHeight && rect.bottom > 0;
+						updateStats();
+					}
+				});
+
+				// Create shader with custom canvas
+				try {
+					const ctx = shaderWebBackground.shade({
+						canvas: canvas,
+						onBeforeFrame: function (ctx) {
+							// Skip rendering if not visible
+							if (!state.visible) return;
+
+							state.frameCount++;
+						},
+						onError: function (error, canvas) {
+							console.error('Failed to create shader for card ' + cardId + ':', error);
+						},
+						shaders: {
+							'border-shader': {
+								uniforms: {
+									iTime: function (gl, loc) {
+										if (!state.visible) return;
+										gl.uniform1f(loc, performance.now() / 1000);
+									},
+									iResolution: function (gl, loc, ctx) {
+										gl.uniform2f(loc, ctx.width, ctx.height);
+									},
+									iBorderWidth: function (gl, loc) {
+										gl.uniform1f(loc, borderWidth);
+									},
+									iPhase: function (gl, loc) {
+										gl.uniform1f(loc, phaseOffset);
+									}
+								}
+							}
+						}
+					});
+
+					return { ctx, observer };
+				} catch (error) {
+					console.error('Failed to create shader for card ' + cardId + ':', error);
+					return null;
+				}
+			}
+
+			// Initialize shaders for all cards
+			cardElements.forEach((cardEl) => {
+				const cardId = parseInt(cardEl.dataset.cardId);
+				const shader = createCardShader(cardId);
+				if (shader) {
+					shaderInstances.push(shader);
+				}
+			});
+
+			// Cleanup on page unload
+			window.addEventListener('unload', () => {
+				shaderInstances.forEach(shader => {
+					if (shader.observer) {
+						shader.observer.disconnect();
+					}
+					if (shader.ctx && shader.ctx.gl) {
+						const loseContext = shader.ctx.gl.getExtension('WEBGL_lose_context');
+						if (loseContext) {
+							loseContext.loseContext();
+						}
+					}
+				});
+			});
+
+			// Initial stats update
+			updateStats();
+		})();
+	</script>
+
+	<!-- Prism.js core + autoloader -->
+	<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
+
+</html>

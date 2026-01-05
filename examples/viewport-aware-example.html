@@ -5,18 +5,22 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Viewport-Aware Multi-Canvas Shaders</title>
-	<link rel="icon" type="image/x-icon" href="favicon.ico">
+	<link rel="icon" type="image/x-icon" href="../favicon.ico">
 	<!-- Google Fonts -->
 	<link rel="stylesheet"
 		href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Roboto:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
 	<!-- Shared styles -->
-	<link rel="stylesheet" href="src/styles.css">
+	<link rel="stylesheet" href="../src/styles.css">
 	<!-- Prism.js for code highlighting -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism-tomorrow.min.css">
 
 	<style>
 		body {
 			background: var(--bg-ultra-dark);
+		}
+
+		.shader-web-background-fallback .shader-wrapper {
+			background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 		}
 	</style>
 
@@ -52,14 +56,10 @@
 <body>
 	<!-- Hero section -->
 	<section class="section intro">
-		<h1>Viewport-Aware Shader Rendering</h1>
+		<h1>Viewport-Aware Shaders</h1>
 		<p class="lead">
-			This example demonstrates how to use the same shader source on multiple canvas elements,
-			with intelligent viewport detection to pause rendering when not visible.
-		</p>
-		<p>
-			Scroll down to see three shader canvases. Each one only renders when it's visible in the viewport,
-			saving GPU resources and improving battery life on mobile devices.
+			Three canvases, one shader source, zero wasted frames. Each instance pauses automatically when
+			off-screen—scroll to watch them toggle in the stats panel.
 		</p>
 	</section>
 
@@ -77,29 +77,23 @@
 
 	<!-- Scroll content -->
 	<section class="section">
-		<h2>How It Works</h2>
+		<h2>IntersectionObserver</h2>
 		<div class="content-block">
-			<h3>IntersectionObserver API</h3>
 			<p>
-				We use the browser's IntersectionObserver to detect when each canvas enters or leaves the viewport.
-				This is much more efficient than listening to scroll events.
+				The browser's <code>IntersectionObserver</code> fires when an element crosses the viewport threshold.
+				No scroll listeners, no <code>getBoundingClientRect()</code> polling—just a callback when visibility changes.
 			</p>
-			<ul>
-				<li>Zero scroll event listeners needed</li>
-				<li>Native browser optimization</li>
-				<li>Configurable threshold for trigger point</li>
-				<li>Works with CSS transforms and scroll containers</li>
-			</ul>
-		</div>
-
-		<div class="content-block">
-			<h3>Performance Benefits</h3>
-			<ul>
-				<li>GPU only renders visible canvases</li>
-				<li>Reduced power consumption</li>
-				<li>Better battery life on mobile</li>
-				<li>Smoother scrolling performance</li>
-			</ul>
+			<pre><code class="language-javascript">const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    state.visible = entry.isIntersecting;
+  });
+}, {
+  threshold: 0.01,      // 1% visible triggers
+  rootMargin: '50px'    // pre-warm before entering view
+});</code></pre>
+			<p>
+				<strong>Why it matters:</strong> Scroll events fire continuously; observers fire once per state change.
+			</p>
 		</div>
 	</section>
 
@@ -117,26 +111,38 @@
 
 	<!-- More content -->
 	<section class="section">
-		<h2>Implementation Pattern</h2>
-		<pre><code class="language-javascript">// Create observer for viewport detection
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    isVisible = entry.isIntersecting;
-  });
-}, { threshold: 0.01 });
-
-// In onBeforeFrame callback
-onBeforeFrame: function(ctx) {
-  if (!isVisible) return; // Skip rendering
-  // ... rest of your code
-}</code></pre>
-
+		<h2>Early-Return in onBeforeFrame</h2>
 		<div class="content-block">
-			<h3>Shared Shader Source</h3>
 			<p>
-				All three canvases share the same shader source code defined once in the HTML.
-				Each instance gets a unique phase offset via the <code>iPhase</code> uniform,
-				creating visual variety without code duplication.
+				The render loop calls <code>onBeforeFrame</code> every frame. If your visibility flag is false,
+				return early—the library skips the draw call entirely.
+			</p>
+			<pre><code class="language-javascript">onBeforeFrame: function(ctx) {
+  if (!state.visible) return; // no GPU work
+  state.frameCount++;
+}</code></pre>
+			<p>
+				<strong>Bonus:</strong> Pause uniforms too—skip updating <code>iTime</code> so the animation
+				freezes exactly where it left off when the canvas re-enters view.
+			</p>
+		</div>
+
+		<h2>Shared Shader, Unique Phase</h2>
+		<div class="content-block">
+			<p>
+				One <code>&lt;script type="x-shader/x-fragment"&gt;</code> serves all three canvases. Each instance
+				passes a different <code>iPhase</code> uniform to offset the color cycle.
+			</p>
+			<pre><code class="language-javascript">const phaseOffsets = {
+  1: 0,
+  2: Math.PI * 2 / 3,   // 120°
+  3: Math.PI * 4 / 3    // 240°
+};
+
+// In uniforms
+iPhase: (gl, loc) => gl.uniform1f(loc, phaseOffsets[canvasId])</code></pre>
+			<p>
+				<strong>Result:</strong> Visual variety with zero code duplication.
 			</p>
 		</div>
 	</section>
@@ -155,15 +161,21 @@ onBeforeFrame: function(ctx) {
 
 	<!-- Final content -->
 	<section class="section">
-		<h2>Key Takeaways</h2>
+		<h2>Tab Visibility</h2>
 		<div class="content-block">
-			<ul>
-				<li>Use <code>config.canvas</code> to target specific canvas elements</li>
-				<li>IntersectionObserver is the most efficient visibility detection</li>
-				<li>Return early in <code>onBeforeFrame</code> to skip rendering</li>
-				<li>Consider <code>document.hidden</code> for tab visibility too</li>
-				<li>Each shader instance maintains its own WebGL context</li>
-			</ul>
+			<p>
+				When the user switches tabs, <code>document.hidden</code> becomes true. Pause all shaders
+				to avoid burning CPU/GPU in the background.
+			</p>
+			<pre><code class="language-javascript">document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    state.visible = false;
+  }
+});</code></pre>
+			<p>
+				<strong>Takeaway:</strong> Combine <code>IntersectionObserver</code> + <code>visibilitychange</code>
+				for bulletproof idle detection.
+			</p>
 		</div>
 	</section>
 
@@ -192,13 +204,9 @@ onBeforeFrame: function(ctx) {
 		<p>Viewport-Aware Shader Example · shader-web-background</p>
 	</footer>
 
-	<!-- WebGL notification -->
-	<div id="webgl-notification" class="webgl-notification hidden">
-		⚠️ WebGL is not supported on this device
-	</div>
 
 	<!-- Shader library -->
-	<script src="src/shader-web-background.min.js"></script>
+	<script src="../src/shader-web-background.min.js"></script>
 
 	<!-- Prism.js core + autoloader -->
 	<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.min.js"></script>
@@ -222,14 +230,30 @@ onBeforeFrame: function(ctx) {
 				3: Math.PI * 4 / 3       // 240°
 			};
 
-			// Check WebGL support
-			function checkWebGLSupport() {
-				try {
-					const canvas = document.createElement('canvas');
-					const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-					return !!gl;
-				} catch (e) {
-					return false;
+			// Create WebGL unsupported notification element
+			function createWebGLNotification() {
+				// Check if notification already exists
+				if (document.getElementById('webgl-notification')) {
+					return;
+				}
+				const notification = document.createElement('div');
+				notification.id = 'webgl-notification';
+				notification.className = 'webgl-notification';
+				notification.innerHTML = `
+					<div class="webgl-notification-content">
+						<div class="webgl-notification-title">⚠️ WebGL unavailable</div>
+						<div class="webgl-notification-message">Your browser or device cannot display these graphics (WebGL required). Please try a different browser or device.</div>
+					</div>
+					<button class="webgl-notification-close" aria-label="Close notification">×</button>
+				`;
+				document.body.appendChild(notification);
+
+				// Add close button functionality
+				const closeBtn = notification.querySelector('.webgl-notification-close');
+				if (closeBtn) {
+					closeBtn.addEventListener('click', function () {
+						notification.remove();
+					});
 				}
 			}
 
@@ -342,6 +366,13 @@ onBeforeFrame: function(ctx) {
 								updateStats();
 							}
 						},
+						onError: function (error, canvas) {
+							// Add fallback class to body for CSS fallback background
+							document.body.classList.add('shader-web-background-fallback');
+							// Create notification element only when shader cannot be displayed
+							createWebGLNotification();
+							console.error('Failed to create shader for canvas ' + canvasId + ':', error);
+						},
 						shaders: {
 							'gradient-image': {
 								uniforms: {
@@ -363,47 +394,46 @@ onBeforeFrame: function(ctx) {
 
 					return { ctx, observer };
 				} catch (error) {
+					// Add fallback class to body for CSS fallback background
+					document.body.classList.add('shader-web-background-fallback');
+					createWebGLNotification();
 					console.error('Failed to create shader for canvas ' + canvasId + ':', error);
 					return null;
 				}
 			}
 
-			// Initialize
-			if (!checkWebGLSupport()) {
-				document.getElementById('webgl-notification').classList.remove('hidden');
-			} else {
-				// Create shader instances for all three canvases
-				const shaders = [];
-				for (let i = 1; i <= 3; i++) {
-					const shader = createViewportAwareShader(i);
-					if (shader) {
-						shaders.push(shader);
-					}
-
-					// Set up toggle button
-					const toggleBtn = document.getElementById('toggle-btn-' + i);
-					if (toggleBtn) {
-						toggleBtn.addEventListener('click', () => {
-							toggleCanvasVisibility(i);
-						});
-					}
+			// Initialize - create shader instances for all three canvases
+			// Library will handle errors via onError callback
+			const shaders = [];
+			for (let i = 1; i <= 3; i++) {
+				const shader = createViewportAwareShader(i);
+				if (shader) {
+					shaders.push(shader);
 				}
 
-				// Cleanup on page unload
-				window.addEventListener('unload', () => {
-					shaders.forEach(shader => {
-						if (shader.observer) {
-							shader.observer.disconnect();
-						}
-						if (shader.ctx && shader.ctx.gl) {
-							const loseContext = shader.ctx.gl.getExtension('WEBGL_lose_context');
-							if (loseContext) {
-								loseContext.loseContext();
-							}
-						}
+				// Set up toggle button
+				const toggleBtn = document.getElementById('toggle-btn-' + i);
+				if (toggleBtn) {
+					toggleBtn.addEventListener('click', () => {
+						toggleCanvasVisibility(i);
 					});
-				});
+				}
 			}
+
+			// Cleanup on page unload
+			window.addEventListener('unload', () => {
+				shaders.forEach(shader => {
+					if (shader.observer) {
+						shader.observer.disconnect();
+					}
+					if (shader.ctx && shader.ctx.gl) {
+						const loseContext = shader.ctx.gl.getExtension('WEBGL_lose_context');
+						if (loseContext) {
+							loseContext.loseContext();
+						}
+					}
+				});
+			});
 
 			// Initial stats update
 			updateStats();

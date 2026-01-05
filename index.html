@@ -853,7 +853,16 @@
 <body>
 	<!-- Shader Selector UI -->
 	<div id="shader-selector">
-		<label for="shader-select">Select Shader:</label>
+		<div class="shader-selector-header">
+			<label for="shader-select">Select Shader:</label>
+			<div class="webgl-toggle-wrapper">
+				<input type="checkbox" id="webgl-toggle" class="webgl-toggle-checkbox">
+				<label class="webgl-toggle-label" for="webgl-toggle"
+					title="Simulate WebGL being unavailable to preview the fallback">
+					<span class="webgl-toggle-text">Disable WebGL / Fallback</span>
+				</label>
+			</div>
+		</div>
 		<select id="shader-select">
 			<option value="gradient">Simple Gradient</option>
 			<option value="feedback-circle">Feedback Circle</option>
@@ -878,10 +887,15 @@
 				<strong>AI-assisted Shadertoy conversion rules</strong>, a shader registry system, and example implementations
 				ranging from simple gradients to complex raymarched fractals.
 			</p>
-			<p><strong>🚀 Quick Start:</strong> Check out the <a href="minimal-example.html" target="_blank">minimal
-					example</a> for a clean, self-contained integration example or <a href="viewport-aware-example.html"
-					target="_blank">viewport-aware example</a> for performance-optimized rendering with IntersectionObserver API.
-			</p>
+			<p><strong>🚀 Examples:</strong></p>
+			<ul>
+				<li><a href="examples/minimal-example.html" target="_blank">Minimal Example</a> — Clean, self-contained
+					integration example</li>
+				<li><a href="examples/viewport-aware-example.html" target="_blank">Viewport-Aware Example</a> —
+					Performance-optimized rendering with IntersectionObserver API</li>
+				<li><a href="examples/card-borders-experiment.html" target="_blank">Shader Borders</a> — Multi-canvas showcase
+					with animated shader borders on cards</li>
+			</ul>
 			<p><strong>
 					GitHub Repository: </strong>
 				<a href="https://github.com/MRKNSTUDIO/shader-background"
@@ -900,6 +914,8 @@
 					shaders</li>
 				<li><strong>Working Examples:</strong> From simple gradients to complex multi-pass feedback loops</li>
 				<li><strong>Interaction Handling:</strong> Mouse, scroll parallax, and device orientation support</li>
+				<li><strong>Error Handling:</strong> Built-in <code>onError</code> callback for graceful fallbacks when WebGL is
+					unavailable</li>
 			</ul>
 		</section>
 
@@ -926,9 +942,11 @@
 │   └── shadertoy-example-*.js                  ← Converted Shadertoy shaders
 ├── shadertoy/
 │   └── shadertoy-example-*.txt                 ← Original Shadertoy source code
+├── examples/
+│   ├── minimal-example.html                    ← Minimal integration example
+│   ├── viewport-aware-example.html             ← Performance-optimized example
+│   └── card-borders-experiment.html            ← Shader borders on cards
 ├── index.html                                  ← Main demo (shader source + UI)
-├── minimal-example.html                        ← Minimal integration example
-├── viewport-aware-example.html                 ← Performance-optimized example
 ├── README.md                                   ← Project documentation
 └── favicon.ico                                 ← Site icon</code></pre>
 		</section>
@@ -999,6 +1017,10 @@ void main() {
 			<br>
 			<p><strong>Step 2:</strong> Create registration file <code>shaders/my-shader.js</code></p>
 			<pre><code class="language-javascript">ShaderRegistry.register('my-shader', {
+  onError: function (error, canvas) {
+    // Optional: Handle errors (e.g., WebGL not supported)
+    console.error('Shader failed:', error);
+  },
   shaders: {
     'my-shader-image': {
       uniforms: {
@@ -1062,6 +1084,30 @@ uniforms: {
 		</section>
 
 		<section class="content-section">
+			<h2>⚠️ Error Handling</h2>
+			<p>The <code>shader-web-background</code> library provides an <code>onError</code> callback that is called when
+				shader initialization fails (e.g., WebGL not supported, missing capabilities). Use this to handle errors
+				gracefully:</p>
+			<pre><code class="language-javascript">shaderWebBackground.shade({
+  onError: function (error, canvas) {
+    // Create fallback UI element only when needed
+    const notification = document.createElement('div');
+    notification.className = 'webgl-notification';
+    notification.textContent = '⚠️ Shader cannot be played on this device';
+    document.body.appendChild(notification);
+
+    console.error('Shader initialization failed:', error);
+  },
+  shaders: { /* ... */ }
+});</code></pre>
+			<p><strong>Best Practice:</strong> Don't create fallback elements in the DOM upfront. Instead, create them
+				dynamically in the <code>onError</code> callback only when the shader cannot be displayed. This keeps your HTML
+				clean and avoids unnecessary DOM elements for users with WebGL support.</p>
+			<p>The library automatically detects WebGL support and capabilities, so you don't need to manually check for WebGL
+				availability before calling <code>shade()</code>.</p>
+		</section>
+
+		<section class="content-section">
 			<h2>⚡ Quick Shadertoy Conversion Checklist</h2>
 			<ul class="checklist">
 				<li>Add <code>precision highp float;</code> at top</li>
@@ -1116,10 +1162,6 @@ uniforms: {
 		</section>
 	</main>
 
-	<!-- WebGL unsupported notification -->
-	<div id="webgl-notification" class="webgl-notification hidden">
-		⚠️ Shader cannot be played on this device
-	</div>
 
 	<!-- shader-web-background library (must load before main.js) -->
 	<script src="src/shader-web-background.min.js"></script>
