@@ -278,6 +278,10 @@ ol {
 	background: var(--bg-glass);
 	backdrop-filter: blur(10px);
 	border: var(--border-light);
+	/* Prevent glitch: Content has to re-render when visibility changes */
+	will-change: transform;
+	transform: translate3d(0, 0, 0);
+	backface-visibility: hidden;
 }
 
 .content-block h3 {
