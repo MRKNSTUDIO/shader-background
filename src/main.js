@@ -63,7 +63,6 @@ const ShaderRegistry = {
         <ul>
           <li>High GPU usage and fan noise</li>
           <li>Increased power consumption</li>
-          <li>Reduced battery life on laptops</li>
           <li>Potential browser slowdown</li>
         </ul>
         <div class="warning-actions">
